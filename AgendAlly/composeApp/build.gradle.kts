@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
-
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.1.21"
 }
 
 kotlin {
@@ -57,30 +57,35 @@ kotlin {
             implementation("io.ktor:ktor-client-core:2.3.12")
             implementation("io.ktor:ktor-client-content-negotiation:2.3.12")
             implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.12")
+            implementation("io.ktor:ktor-client-logging:2.3.12")
 
             // 🧭 Navigation - versión estable
             implementation("org.jetbrains.androidx.navigation:navigation-compose:2.7.0-alpha07")
 
             // 🎯 ViewModel Compose - versión compatible
             implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+
+            // 💾 DataStore para persistencia (añadido)
+            implementation("androidx.datastore:datastore-preferences-core:1.1.1")
         }
+
 
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
 
         desktopMain.dependencies {
-            // 🖥️ Desktop Compose
+            // Desktop Compose
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
 
-            // 🌐 HTTP Client para Desktop - versión estable
+            // HTTP Client para Desktop - versión estable
             implementation("io.ktor:ktor-client-cio:2.3.12")
 
-            // 🔐 Google OAuth para Desktop
+            // Google OAuth para Desktop
             implementation("com.google.auth:google-auth-library-oauth2-http:1.19.0")
 
-            // 🌐 Servidor local temporal para OAuth callback
+            // Servidor local temporal para OAuth callback
             implementation("io.ktor:ktor-server-netty:2.3.12")
             implementation("io.ktor:ktor-server-core:2.3.12")
         }

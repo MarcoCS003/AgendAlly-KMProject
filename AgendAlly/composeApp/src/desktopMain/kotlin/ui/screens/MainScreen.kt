@@ -10,6 +10,8 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import repository.AuthRepo
+import repository.AuthResult
 import ui.components.AgendAllyNavigationRail
 import ui.components.NavigationScreen
 
@@ -25,7 +27,8 @@ data class UserData(
 
 @Composable
 fun MainScreen() {
-    var selectedScreen by remember { mutableStateOf(NavigationScreen.CALENDAR) }
+    var selectedScreen by remember { mutableStateOf(NavigationScreen.CONNECTIVITY_TEST) }
+
 
     // Estado del usuario
     var currentUser by remember { mutableStateOf<UserData?>(null) }
@@ -34,6 +37,8 @@ fun MainScreen() {
 
     // Estado de login
     val isUserLoggedIn = currentUser != null
+
+    val coroutineScope = rememberCoroutineScope()
 
     Row(modifier = Modifier.fillMaxSize()) {
         // Navigation Rail con estado de login
@@ -99,18 +104,36 @@ fun MainScreen() {
                 NavigationScreen.LOGIN -> {
                     LoginScreen(
                         onGoogleSignIn = {
-                            handleGoogleSignIn(
+                            // 🚀 NUEVA IMPLEMENTACIÓN: Usar AuthRepository real
+                            handleRealGoogleSignIn(
+                                scope = coroutineScope,
                                 onLoading = { isLoading = it },
                                 onError = { error = it },
-                                onSuccess = { user ->
+                                onSuccess = { user, requiresSetup ->
                                     currentUser = user
-                                    selectedScreen = NavigationScreen.CALENDAR
+
+                                    if (requiresSetup) {
+                                        // ⚠️ TODO: Navegar a OrganizationSetupScreen
+                                        error = "✅ Login exitoso! Requiere configurar organización"
+                                        // Por ahora quedarse en login mostrando el mensaje
+                                    } else {
+                                        // Usuario existente → ir al dashboard
+                                        selectedScreen = NavigationScreen.CALENDAR
+                                        error = null
+                                    }
                                 }
                             )
                         },
                         isLoading = isLoading,
-                        error = error
+                        error = error,
+                        onRetry = {
+                            // Limpiar error y reintentar
+                            error = null
+                        }
                     )
+                }
+                NavigationScreen.CONNECTIVITY_TEST -> {
+                    ConnectivityTestScreen()
                 }
             }
         }
@@ -184,36 +207,46 @@ fun SettingsPlaceholderScreen() {
 }
 
 // Función para manejar el login con Google
-private fun handleGoogleSignIn(
+private fun handleRealGoogleSignIn(
+    scope: kotlinx.coroutines.CoroutineScope,
     onLoading: (Boolean) -> Unit,
     onError: (String?) -> Unit,
-    onSuccess: (UserData) -> Unit
+    onSuccess: (UserData, Boolean) -> Unit
 ) {
-    onLoading(true)
-    onError(null)
-
-    // Simular proceso de autenticación
-    GlobalScope.launch {
+    scope.launch {
         try {
-            // Simular delay de autenticación
-            delay(2000)
+            onLoading(true)
+            onError(null)
 
-            // Simular respuesta exitosa
-            val mockUser = UserData(
-                id = "123",
-                name = "Juan Pérez",
-                email = "juan.perez@puebla.tecnm.mx",
-                profilePicture = null,
-                hasOrganization = true,
-                organizationName = "Instituto Tecnológico de Puebla"
-            )
+            // 🔐 Llamada real al AuthRepository
+            val authResult = AuthRepo.instance.signInWithGoogle()
 
-            onLoading(false)
-            onSuccess(mockUser)
+            when (authResult) {
+                is AuthResult.Success -> {
+                    onLoading(false)
+                    // ✅ CONVERSIÓN: models.UserData → ui.UserData
+                    val uiUserData = UserData(
+                        id = authResult.user.id,
+                        name = authResult.user.name,
+                        email = authResult.user.email,
+                        profilePicture = authResult.user.profilePicture,
+                        hasOrganization = authResult.user.hasOrganization,
+                        organizationName = authResult.user.organizationName
+                    )
+                    onSuccess(uiUserData, authResult.requiresOrganizationSetup)
+                }
+                is AuthResult.Error -> {
+                    onLoading(false)
+                    onError("❌ ${authResult.message}")
+                }
+                is AuthResult.Loading -> {
+                    // Este estado se maneja en el repository
+                }
+            }
 
         } catch (e: Exception) {
             onLoading(false)
-            onError("Error de autenticación: ${e.message}")
+            onError("💥 Error inesperado: ${e.message}")
         }
     }
 }
