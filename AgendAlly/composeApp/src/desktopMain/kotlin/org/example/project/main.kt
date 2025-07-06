@@ -1,12 +1,12 @@
 package org.example.project
 
-import androidx.compose.material.MaterialTheme
+
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
 import ui.AgendAllyApp
-import ui.screens.MainScreen
+
 
 
 fun main() = application {
