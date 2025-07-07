@@ -7,10 +7,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
+import auth.DesktopAuth
 import kotlinx.coroutines.launch
-import repository.AuthRepo
 import repository.AuthResult
 import ui.components.AgendAllyNavigationRail
 import ui.components.NavigationScreen
@@ -103,35 +101,38 @@ fun MainScreen() {
                 }
                 NavigationScreen.LOGIN -> {
                     LoginScreen(
-                        onGoogleSignIn = {
-                            // 🚀 NUEVA IMPLEMENTACIÓN: Usar AuthRepository real
+                        onGoogleSignIn = { useRealOAuth ->  // ← Agregar parámetro
                             handleRealGoogleSignIn(
+                                useRealOAuth = useRealOAuth,    // ← Agregar este parámetro
                                 scope = coroutineScope,
                                 onLoading = { isLoading = it },
                                 onError = { error = it },
                                 onSuccess = { user, requiresSetup ->
                                     currentUser = user
-
                                     if (requiresSetup) {
-                                        // ⚠️ TODO: Navegar a OrganizationSetupScreen
-                                        error = "✅ Login exitoso! Requiere configurar organización"
-                                        // Por ahora quedarse en login mostrando el mensaje
+                                        selectedScreen = NavigationScreen.ORGANIZATION_SETUP  // ← Cambiar esta línea
                                     } else {
-                                        // Usuario existente → ir al dashboard
                                         selectedScreen = NavigationScreen.CALENDAR
-                                        error = null
                                     }
                                 }
                             )
-                        },
-                        isLoading = isLoading,
-                        error = error,
-                        onRetry = {
-                            // Limpiar error y reintentar
-                            error = null
                         }
                     )
                 }
+
+                NavigationScreen.ORGANIZATION_SETUP -> {
+                    OrganizationSetupScreen(
+                        userEmail = currentUser?.email ?: "",
+                        onSetupComplete = {
+                            selectedScreen = NavigationScreen.CALENDAR
+                        },
+                        onSkip = {
+                            selectedScreen = NavigationScreen.CALENDAR
+                        }
+                    )
+                }
+
+
                 NavigationScreen.CONNECTIVITY_TEST -> {
                     ConnectivityTestScreen()
                 }
@@ -206,8 +207,9 @@ fun SettingsPlaceholderScreen() {
     }
 }
 
-// Función para manejar el login con Google
+
 private fun handleRealGoogleSignIn(
+    useRealOAuth: Boolean,
     scope: kotlinx.coroutines.CoroutineScope,
     onLoading: (Boolean) -> Unit,
     onError: (String?) -> Unit,
@@ -218,13 +220,16 @@ private fun handleRealGoogleSignIn(
             onLoading(true)
             onError(null)
 
-            // 🔐 Llamada real al AuthRepository
-            val authResult = AuthRepo.instance.signInWithGoogle()
+            // 🔐 Usar DesktopAuthManager con modo seleccionado
+            val authResult = if (useRealOAuth) {
+                DesktopAuth.instance.signInWithGoogleOAuth()
+            } else {
+                DesktopAuth.instance.signInWithGoogleTesting()
+            }
 
             when (authResult) {
                 is AuthResult.Success -> {
                     onLoading(false)
-                    // ✅ CONVERSIÓN: models.UserData → ui.UserData
                     val uiUserData = UserData(
                         id = authResult.user.id,
                         name = authResult.user.name,
@@ -240,7 +245,7 @@ private fun handleRealGoogleSignIn(
                     onError("❌ ${authResult.message}")
                 }
                 is AuthResult.Loading -> {
-                    // Este estado se maneja en el repository
+                    // Estado manejado por loading
                 }
             }
 

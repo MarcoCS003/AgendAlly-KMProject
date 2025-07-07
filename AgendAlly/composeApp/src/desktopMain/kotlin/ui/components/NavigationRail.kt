@@ -13,7 +13,8 @@ enum class NavigationScreen {
     INSTITUTE,
     SETTINGS,
     LOGIN,
-    CONNECTIVITY_TEST
+    CONNECTIVITY_TEST,
+    ORGANIZATION_SETUP
 }
 
 @Composable
@@ -155,18 +156,6 @@ fun AgendAllyNavigationRail(
                 )
             )
         }
-
-        // ⚠️ TEMPORAL: Test de Conectividad
-        NavigationRailItem(
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.NetworkCheck,
-                    contentDescription = "Test API"
-                )
-            },
-            label = { Text("Test API") },
-            selected = selectedScreen == NavigationScreen.CONNECTIVITY_TEST,
-            onClick = { onScreenSelected(NavigationScreen.CONNECTIVITY_TEST) }
-        )
     }
+
 }

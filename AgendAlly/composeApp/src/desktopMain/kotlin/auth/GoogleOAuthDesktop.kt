@@ -214,57 +214,55 @@ class GoogleOAuthDesktop {
      * 🎫 Intercambiar código de autorización por tokens
      */
     private suspend fun exchangeCodeForTokens(authCode: String): OAuthResult {
-        return try {
-            // Por ahora, simulamos la obtención del idToken
-            // En implementación real, aquí haríamos POST a Google Token endpoint
-
-            // TODO: Implementar intercambio real de tokens
-            val mockIdToken = "mock_id_token_${System.currentTimeMillis()}"
-            val mockEmail = "user@example.com" // En real se extraería del idToken
-
-            println("🎫 Mock token exchange successful")
-
-            OAuthResult.Success(
-                idToken = mockIdToken,
-                email = mockEmail,
-                accessToken = "mock_access_token"
-            )
-
-        } catch (e: Exception) {
-            println("❌ Token exchange failed: ${e.message}")
-            OAuthResult.Error("Failed to exchange tokens: ${e.message}")
-        }
+        return TokenExchangeService.exchangeAuthorizationCode(authCode)
     }
-
     /**
      * 📄 Página HTML de éxito
      */
     private fun buildSuccessPage(): String {
         return """
-        <html>
-        <head>
-            <title>AgendAlly - Autenticación Exitosa</title>
-            <style>
-                body { font-family: Arial; text-align: center; padding: 50px; background: #f0f9ff; }
-                .success { color: #059669; font-size: 24px; margin-bottom: 20px; }
-                .message { color: #374151; font-size: 16px; }
-            </style>
-        </head>
-        <body>
-            <div class="success">✅ Autenticación Exitosa</div>
+    <html>
+    <head>
+        <title>AgendAlly - Autenticación Exitosa</title>
+        <style>
+            body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                text-align: center; padding: 50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white; margin: 0; height: 100vh; display: flex; align-items: center; justify-content: center;
+            }
+            .container { max-width: 400px; }
+            .success { font-size: 48px; margin-bottom: 20px; animation: bounce 1s; }
+            .title { font-size: 24px; margin-bottom: 10px; font-weight: 600; }
+            .message { font-size: 16px; opacity: 0.9; line-height: 1.5; }
+            .timer { font-size: 14px; margin-top: 20px; opacity: 0.7; }
+            @keyframes bounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="success">✅</div>
+            <div class="title">¡Autenticación Exitosa!</div>
             <div class="message">
                 Has iniciado sesión correctamente en AgendAlly.<br>
-                Puedes cerrar esta ventana y regresar a la aplicación.
+                Esta ventana se cerrará automáticamente.
             </div>
-            <script>
-                // Auto-cerrar ventana después de 3 segundos
-                setTimeout(() => {
+            <div class="timer">Cerrando en <span id="countdown">3</span> segundos...</div>
+        </div>
+        <script>
+            let seconds = 3;
+            const countdown = document.getElementById('countdown');
+            const timer = setInterval(() => {
+                seconds--;
+                countdown.textContent = seconds;
+                if (seconds <= 0) {
+                    clearInterval(timer);
                     try { window.close(); } catch(e) { }
-                }, 3000);
-            </script>
-        </body>
-        </html>
-        """.trimIndent()
+                }
+            }, 1000);
+        </script>
+    </body>
+    </html>
+    """.trimIndent()
     }
 
     /**
