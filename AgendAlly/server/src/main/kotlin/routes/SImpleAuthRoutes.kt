@@ -3,17 +3,14 @@ package routes
 
 
 
+
 import com.example.*
 import io.ktor.http.*
-import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
-import services.AuthMiddleware
-import services.AuthAdapter
-import services.AuthResult
-import services.UserPermissions
+import services.*
 import java.time.LocalDateTime
 
 // ✨ MODELOS PARA RESPUESTAS SERIALIZABLES
@@ -103,7 +100,10 @@ fun Route.authRoutes() {
                 }
 
                 // Usar tu AuthMiddleware existente
-                val authResult = authMiddleware.authenticateUser(request.idToken)
+                val authResult = authMiddleware.validateTokenAndPermissions(
+                    idToken = request.idToken,
+                    clientType = ClientType.DESKTOP_ADMIN  // ✅ CAMBIAR ESTA LÍNEA
+                )
 
                 if (authResult == null) {
                     call.respond(
@@ -119,6 +119,7 @@ fun Route.authRoutes() {
 
             } catch (e: Exception) {
                 println("❌ Error en login: ${e.message}")
+                e.printStackTrace()
                 call.respond(
                     HttpStatusCode.InternalServerError,
                     ErrorResponse(error = "Error interno del servidor ${e.message}")
@@ -129,7 +130,7 @@ fun Route.authRoutes() {
         // GET /api/auth/status - Estado de Firebase
         get("/status") {
             try {
-                val firebaseReady = FirebaseConfig.isReady()
+                val firebaseReady = FirebaseService.isReady()
 
                 val response = StatusResponse(
                     firebase_initialized = firebaseReady,

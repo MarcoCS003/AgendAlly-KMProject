@@ -15,7 +15,18 @@ data class LoginRequest(
 data class OrganizationSetupRequest(
     val name: String,
     val acronym: String,
-    val contactEmail: String
+    val description: String = "",
+    val address: String,
+    val email: String,
+    val phone: String,
+    val studentNumber: Int = 0,
+    val teacherNumber: Int = 0,
+    val webSite: String? = null,
+    val facebook: String? = null,
+    val instagram: String? = null,
+    val twitter: String? = null,
+    val youtube: String? = null,
+    val linkedin: String? = null
 )
 
 // ============== RESPONSE MODELS ==============

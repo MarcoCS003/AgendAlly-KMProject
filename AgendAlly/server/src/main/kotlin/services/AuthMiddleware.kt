@@ -19,7 +19,7 @@ import java.time.format.DateTimeFormatter
 class AuthMiddleware {
 
     private val firebaseAuth: FirebaseAuth by lazy {
-        FirebaseConfig.getAuth()
+        FirebaseService.getAuth()
     }
 
     /**
@@ -30,33 +30,46 @@ class AuthMiddleware {
         clientType: ClientType
     ): AuthResult? {
         return try {
+            println("🔍 VALIDANDO TOKEN...")
+            println("   Client Type: $clientType")
+            println("   Token (primeros 50 chars): ${idToken.take(50)}...")
+
             // 1. Validar token con Firebase
-            val decodedToken = firebaseAuth.verifyIdToken(idToken, true)
+            val decodedToken = FirebaseService.verifyIdToken(idToken)
+            if (decodedToken == null) {
+                println("❌ Token verification failed")
+                return null
+            }
+            println("✅ Token válido para: ${decodedToken.email}")
 
             // 2. Determinar permisos según plataforma y email
             val permissions = determinePermissions(clientType, decodedToken.email)
+            println("✅ Permisos determinados: ${permissions.role}")
 
             // 3. Crear/actualizar usuario en BD si es necesario
-            val user = ensureUserExists(decodedToken, permissions.role)
+            val (user, isNewUser) = ensureUserExists(decodedToken, permissions.role)
+            println("✅ Usuario procesado: ${user.email}, Nuevo: $isNewUser")
 
             AuthResult(
                 user = user,
                 permissions = permissions,
-                firebaseToken = decodedToken
+                firebaseToken = decodedToken,
+                isNewUser = isNewUser
             )
 
         } catch (e: FirebaseAuthException) {
-            println("❌ Token inválido: ${e.message}")
+            println("❌ Firebase Auth Error: ${e.message}")
+            println("❌ Error Code: ${e.authErrorCode}")
+            e.printStackTrace()
             null
         } catch (e: Exception) {
-            println("❌ Error validando token: ${e.message}")
+            println("❌ General Error: ${e.message}")
+            e.printStackTrace()
             null
         }
     }
 
-    /**
-     * ✅ DETERMINA PERMISOS SOLO POR PLATAFORMA (SIMPLIFICADO)
-     */
+
     private fun determinePermissions(clientType: ClientType, email: String): UserPermissions {
         return when (clientType) {
             ClientType.ANDROID_STUDENT -> {
@@ -97,13 +110,13 @@ class AuthMiddleware {
     /**
      * ✅ Crea usuario y lo asigna automáticamente a organización
      */
-    private fun ensureUserExists(firebaseToken: FirebaseToken, role: UserRole): User {
+    private fun ensureUserExists(firebaseToken: FirebaseToken, role: UserRole): Pair<User, Boolean> {
         return transaction {
             val existingUser = Users.select { Users.googleId eq firebaseToken.uid }
                 .singleOrNull()
 
-            val user = if (existingUser != null) {
-                // Actualizar información del usuario existente
+            if (existingUser != null) {
+                // ✅ USUARIO EXISTENTE - Solo actualizar info
                 Users.update({ Users.googleId eq firebaseToken.uid }) {
                     it[name] = firebaseToken.name ?: firebaseToken.email
                     it[email] = firebaseToken.email
@@ -111,9 +124,11 @@ class AuthMiddleware {
                     it[lastLoginAt] = LocalDateTime.now()
                 }
 
-                mapRowToUser(Users.select { Users.googleId eq firebaseToken.uid }.single())
+                val user = mapRowToUser(Users.select { Users.googleId eq firebaseToken.uid }.single())
+                Pair(user, false) // false = NO es usuario nuevo
+
             } else {
-                // Crear nuevo usuario
+                // ✅ USUARIO COMPLETAMENTE NUEVO
                 val userId = Users.insert {
                     it[googleId] = firebaseToken.uid
                     it[email] = firebaseToken.email
@@ -128,22 +143,8 @@ class AuthMiddleware {
                 } get Users.id
 
                 val newUser = mapRowToUser(Users.select { Users.id eq userId }.single())
-
-                // 🏢 Auto-asignar a organización basado en email
-                val orgService = OrganizationAssignmentService()
-                val assignmentResult = orgService.assignUserToOrganization(userId, firebaseToken.email)
-
-                if (assignmentResult.success) {
-                    println("✅ Usuario ${firebaseToken.email} asignado a ${assignmentResult.organization?.name}")
-                    println("📺 Suscripciones creadas: ${assignmentResult.subscriptionsCreated}")
-                } else {
-                    println("⚠️ No se pudo asignar organización: ${assignmentResult.message}")
-                }
-
-                newUser
+                Pair(newUser, true) // true = SÍ es usuario nuevo
             }
-
-            user
         }
     }
 
@@ -178,15 +179,14 @@ class AuthMiddleware {
                 requiresOrganization = false
             )
 
-            // 3. Crear/actualizar usuario
-
-
-            val user = ensureUserExists(decodedToken, UserRole.ADMIN)
+            // 3. Crear/actualizar usuario y detectar si es nuevo
+            val (user, isNewUser) = ensureUserExists(decodedToken, UserRole.ADMIN)
 
             AuthResult(
                 user = user,
                 permissions = permissions,
-                firebaseToken = decodedToken
+                firebaseToken = decodedToken,
+                isNewUser = isNewUser  // ✅ NUEVO CAMPO
             )
 
         } catch (e: FirebaseAuthException) {
@@ -206,7 +206,8 @@ class AuthMiddleware {
 data class AuthResult(
     val user: User,
     val permissions: UserPermissions,
-    val firebaseToken: FirebaseToken
+    val firebaseToken: FirebaseToken,
+    val isNewUser: Boolean = false  // ✅ NUEVO CAMPO
 )
 
 /**

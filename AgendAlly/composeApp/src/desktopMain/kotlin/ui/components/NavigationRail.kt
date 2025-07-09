@@ -155,6 +155,12 @@ fun AgendAllyNavigationRail(
                     unselectedTextColor = MaterialTheme.colorScheme.primary
                 )
             )
+            NavigationRailItem(
+                icon = { Icon(Icons.Default.WifiFind, contentDescription = "Conectibity test"  )},
+                label = { Text("Test", color = MaterialTheme.colorScheme.primary) },
+                selected = selectedScreen == NavigationScreen.CONNECTIVITY_TEST,
+                onClick = {onScreenSelected(NavigationScreen.CONNECTIVITY_TEST) }
+            )
         }
     }
 

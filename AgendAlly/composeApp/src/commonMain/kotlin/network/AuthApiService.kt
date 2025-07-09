@@ -127,14 +127,36 @@ class AuthApiService {
     suspend fun setupOrganization(
         name: String,
         acronym: String,
-        contactEmail: String,
+        description: String = "",
+        address: String,
+        email: String,
+        phone: String,
+        studentNumber: Int = 0,
+        teacherNumber: Int = 0,
+        website: String? = null,
+        facebook: String? = null,
+        instagram: String? = null,
+        twitter: String? = null,
+        youtube: String? = null,
+        linkedin: String? = null,
         authToken: String
     ): Result<OrganizationSetupResponse> {
         return try {
             val request = OrganizationSetupRequest(
                 name = name,
                 acronym = acronym,
-                contactEmail = contactEmail
+                description = description,
+                address = address,
+                email = email,
+                phone = phone,
+                studentNumber = studentNumber,
+                teacherNumber = teacherNumber,
+                webSite = website,
+                facebook = facebook,
+                instagram = instagram,
+                twitter = twitter,
+                youtube = youtube,
+                linkedin = linkedin
             )
 
             val response = client.post(HttpClientConfig.Endpoints.AUTH_ORGANIZATION_SETUP) {
@@ -163,7 +185,6 @@ class AuthApiService {
             Result.failure(Exception("Setup error: ${e.message}"))
         }
     }
-
     /**
      * 🔍 Validar token JWT
      */

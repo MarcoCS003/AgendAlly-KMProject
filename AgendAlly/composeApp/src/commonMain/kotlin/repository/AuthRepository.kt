@@ -87,62 +87,70 @@ class AuthRepository {
         }
     }
 
-    /**
-     * 🎯 Método principal de login (retrocompatibilidad)
-     * Usa testing mode por defecto para mantener Fase 2 funcionando
-     */
-    suspend fun signInWithGoogle(): AuthResult {
-        return signInWithGoogleTesting()
-    }
 
-    /**
-     * 🧪 Login de testing con email específico
-     * Útil para testing de diferentes scenarios
-     */
-    suspend fun testLoginWithEmail(email: String): AuthResult {
+    suspend fun setupOrganization(
+        name: String,
+        acronym: String,
+        description: String = "",
+        address: String,
+        email: String,
+        phone: String,
+        studentNumber: Int = 0,
+        teacherNumber: Int = 0,
+        website: String? = null,
+        facebook: String? = null,
+        instagram: String? = null,
+        twitter: String? = null,
+        youtube: String? = null,
+        linkedin: String? = null,
+        userToken: String? = null
+    ): AuthResult {
         return try {
             delay(Constants.UI.LOADING_DELAY_MS)
 
-            val loginResult = authApiService.testLogin(email)
+            val setupResult = authApiService.setupOrganization(
+                name = name,
+                acronym = acronym,
+                description = description,
+                address = address,
+                email = email,
+                phone = phone,
+                studentNumber = studentNumber,
+                teacherNumber = teacherNumber,
+                website = website,
+                facebook = facebook,
+                instagram = instagram,
+                twitter = twitter,
+                youtube = youtube,
+                linkedin = linkedin,
+                authToken = userToken ?: "temp-token"
+            )
 
-            if (loginResult.isSuccess) {
-                val loginResponse = loginResult.getOrThrow()
+            if (setupResult.isSuccess) {
+                val response = setupResult.getOrThrow()
 
-                if (loginResponse.success && loginResponse.user != null) {
-                    val userData = loginResponse.user.toUserData()
+                if (response.success && response.user != null) {
+                    val userData = response.user.toUserData()
 
                     AuthResult.Success(
                         user = userData,
-                        requiresOrganizationSetup = loginResponse.requiresOrganizationSetup,
-                        message = loginResponse.message
+                        requiresOrganizationSetup = false,
+                        message = response.message
                     )
                 } else {
-                    AuthResult.Error("Login failed: ${loginResponse.message}")
+                    AuthResult.Error("Setup failed: ${response.message}")
                 }
             } else {
-                val exception = loginResult.exceptionOrNull()
+                val exception = setupResult.exceptionOrNull()
                 AuthResult.Error("Network error: ${exception?.message}")
             }
 
         } catch (e: Exception) {
-            AuthResult.Error("Unexpected error: ${e.message}")
+            AuthResult.Error("Setup error: ${e.message}")
         }
     }
-
-    /**
-     * 🏥 Verificar estado del servidor
-     */
-    suspend fun checkServerStatus(): Result<StatusResponse> {
-        return authApiService.getStatus()
-    }
-
-    /**
-     * 🔍 Validar token (para futuro uso)
-     */
-    suspend fun validateToken(token: String): Boolean {
-        return authApiService.validateToken(token).getOrDefault(false)
-    }
 }
+
 
 /**
  * 📊 Resultado de autenticación

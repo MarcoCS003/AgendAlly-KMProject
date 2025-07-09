@@ -25,7 +25,7 @@ data class UserData(
 
 @Composable
 fun MainScreen() {
-    var selectedScreen by remember { mutableStateOf(NavigationScreen.CONNECTIVITY_TEST) }
+    var selectedScreen by remember { mutableStateOf(NavigationScreen.LOGIN) }
 
 
     // Estado del usuario
@@ -55,6 +55,7 @@ fun MainScreen() {
                             selectedScreen = NavigationScreen.LOGIN
                         }
                     }
+
                     else -> {
                         selectedScreen = screen
                     }
@@ -81,6 +82,7 @@ fun MainScreen() {
                         }
                     }
                 }
+
                 NavigationScreen.INSTITUTE -> {
                     if (isUserLoggedIn) {
                         InstitutePlaceholderScreen()
@@ -90,6 +92,7 @@ fun MainScreen() {
                         }
                     }
                 }
+
                 NavigationScreen.SETTINGS -> {
                     if (isUserLoggedIn) {
                         SettingsPlaceholderScreen()
@@ -99,35 +102,46 @@ fun MainScreen() {
                         }
                     }
                 }
+
                 NavigationScreen.LOGIN -> {
                     LoginScreen(
-                        onGoogleSignIn = { useRealOAuth ->  // ← Agregar parámetro
+                        onGoogleSignIn = {  // ← Agregar parámetro
                             handleRealGoogleSignIn(
-                                useRealOAuth = useRealOAuth,    // ← Agregar este parámetro
+                                useRealOAuth = true,    // ← Agregar este parámetro
                                 scope = coroutineScope,
                                 onLoading = { isLoading = it },
                                 onError = { error = it },
                                 onSuccess = { user, requiresSetup ->
                                     currentUser = user
+
+                                    println("🔍 LOGIN SUCCESS:")
+                                    println("   User: ${user.name}")
+                                    println("   Email: ${user.email}")
+                                    println("   RequiresSetup: $requiresSetup")
+
                                     if (requiresSetup) {
-                                        selectedScreen = NavigationScreen.ORGANIZATION_SETUP  // ← Cambiar esta línea
+                                        selectedScreen = NavigationScreen.ORGANIZATION_SETUP
                                     } else {
                                         selectedScreen = NavigationScreen.CALENDAR
                                     }
                                 }
                             )
-                        }
+                        },
+                        isLoading = isLoading,  // ← Agregar esta línea
+                        error = error
                     )
                 }
 
                 NavigationScreen.ORGANIZATION_SETUP -> {
                     OrganizationSetupScreen(
-                        userEmail = currentUser?.email ?: "",
                         onSetupComplete = {
+                            // Setup exitoso, ir al dashboard
                             selectedScreen = NavigationScreen.CALENDAR
                         },
-                        onSkip = {
-                            selectedScreen = NavigationScreen.CALENDAR
+                        onBackToLogin = {
+                            // Volver al login
+                            selectedScreen = NavigationScreen.LOGIN
+                            currentUser = null
                         }
                     )
                 }
@@ -215,20 +229,32 @@ private fun handleRealGoogleSignIn(
     onError: (String?) -> Unit,
     onSuccess: (UserData, Boolean) -> Unit
 ) {
+    println("🚀 INICIANDO LOGIN...")
     scope.launch {
         try {
             onLoading(true)
             onError(null)
 
+            println("🔐 Modo OAuth: $useRealOAuth")
+
             // 🔐 Usar DesktopAuthManager con modo seleccionado
             val authResult = if (useRealOAuth) {
+                println("📱 Usando OAuth real...")
                 DesktopAuth.instance.signInWithGoogleOAuth()
             } else {
+                println("🧪 Usando testing...")
                 DesktopAuth.instance.signInWithGoogleTesting()
             }
 
+            println("📊 Auth result type: ${authResult::class.simpleName}")
+
             when (authResult) {
                 is AuthResult.Success -> {
+                    println("✅ LOGIN EXITOSO!")
+                    println("   User ID: ${authResult.user.id}")
+                    println("   Name: ${authResult.user.name}")
+                    println("   Requires Setup: ${authResult.requiresOrganizationSetup}")
+
                     onLoading(false)
                     val uiUserData = UserData(
                         id = authResult.user.id,
@@ -240,16 +266,21 @@ private fun handleRealGoogleSignIn(
                     )
                     onSuccess(uiUserData, authResult.requiresOrganizationSetup)
                 }
+
                 is AuthResult.Error -> {
+                    println("❌ LOGIN ERROR: ${authResult.message}")
                     onLoading(false)
                     onError("❌ ${authResult.message}")
                 }
+
                 is AuthResult.Loading -> {
-                    // Estado manejado por loading
+                    println("⏳ Still loading...")
                 }
             }
 
         } catch (e: Exception) {
+            println("💥 EXCEPTION: ${e.message}")
+            e.printStackTrace()
             onLoading(false)
             onError("💥 Error inesperado: ${e.message}")
         }

@@ -6,6 +6,7 @@ package network
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import utils.Constants
 
 object ConnectivityTest {
 
@@ -41,7 +42,7 @@ object ConnectivityTest {
 
                 // Test 2: Test login
                 results.add("🔐 Test 2: POST /api/auth/test-login")
-                val loginResult = AuthApi.instance.testLogin("admin@itp.edu.mx")
+                val loginResult = AuthApi.instance.testLogin(Constants.Development.TEST_ADMIN_EMAIL)
 
                 if (loginResult.isSuccess) {
                     val login = loginResult.getOrNull()

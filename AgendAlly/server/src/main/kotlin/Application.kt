@@ -1,7 +1,6 @@
 package com.academically
 
 
-import com.example.ClientType
 import com.example.routes.eventsRoutes
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp
@@ -19,6 +18,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import routes.*
+import services.FirebaseService
 import java.io.FileInputStream
 
 fun main() {
@@ -101,7 +101,7 @@ fun Application.configureFirebase() {
     try {
         println("🔥 Inicializando Firebase...")
         System.setProperty("ENVIRONMENT", "development")
-        FirebaseConfig.initialize()
+        FirebaseService.initialize()
         println("✅ Firebase listo")
     } catch (e: Exception) {
         println("⚠️ Firebase error: ${e.message} - Continuando...")
@@ -190,7 +190,7 @@ fun Application.configureRouting() {
                 {
                     "status": "healthy",
                     "timestamp": ${System.currentTimeMillis()},
-                    "firebase": "${if (FirebaseConfig.isReady()) "ready" else "not_configured"}",
+                    "firebase": "${if (FirebaseService.isReady()) "ready" else "not_configured"}",
                     "database": "connected",
                     "version": "2.0.0",
                     "static_files": "enabled"
