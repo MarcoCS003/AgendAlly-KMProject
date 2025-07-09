@@ -319,6 +319,7 @@ data class MessageResponse(
 @Serializable
 data class LoginRequest(
     val idToken: String,
+    val email: String = "",
     val clientType: String = "DESKTOP_ADMIN"
 )
 

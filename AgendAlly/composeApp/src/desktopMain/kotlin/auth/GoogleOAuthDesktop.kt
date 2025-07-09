@@ -1,7 +1,13 @@
 // composeApp/src/desktopMain/kotlin/auth/GoogleOAuthDesktop.kt
 package auth
 
+import io.ktor.client.*
+import io.ktor.client.call.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.request.forms.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
@@ -9,6 +15,8 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.*
 import utils.Constants
 import java.awt.Desktop
 import java.net.URI
@@ -213,8 +221,63 @@ class GoogleOAuthDesktop {
     /**
      * 🎫 Intercambiar código de autorización por tokens
      */
+
     private suspend fun exchangeCodeForTokens(authCode: String): OAuthResult {
-        return TokenExchangeService.exchangeAuthorizationCode(authCode)
+        return try {
+            println("🔄 Exchanging authorization code for tokens...")
+            println("🔑 Making request to ${Constants.GoogleOAuth.TOKEN_URL}")
+
+            // Crear cliente HTTP temporal
+            val client = HttpClient {
+                install(ContentNegotiation) {
+                    json()
+                }
+            }
+
+            // Hacer POST a Google Token endpoint
+            val response = client.submitForm(
+                url = Constants.GoogleOAuth.TOKEN_URL,
+                formParameters = Parameters.build {
+                    append("client_id", Constants.GoogleOAuth.CLIENT_ID)
+                    append("client_secret", Constants.GoogleOAuth.CLIENT_SECRET)
+                    append("code", authCode)
+                    append("grant_type", "authorization_code")
+                    append("redirect_uri", Constants.GoogleOAuth.REDIRECT_URI)
+                    // NO incluir client_secret para aplicaciones públicas/desktop
+                }
+            )
+
+            client.close()
+
+            if (response.status == HttpStatusCode.OK) {
+                val tokenResponse = response.body<TokenResponse>()
+
+                println("✅ Token exchange successful")
+                println("🎫 idToken received: ${tokenResponse.id_token.take(50)}...")
+
+                // Decodificar JWT para extraer información del usuario
+                val userInfo = decodeJWTPayload(tokenResponse.id_token)
+                val email = userInfo["email"] as? String ?: "unknown@example.com"
+
+                println("📧 User email extracted: $email")
+
+                OAuthResult.Success(
+                    idToken = tokenResponse.id_token,
+                    email = email,
+                    accessToken = tokenResponse.access_token ?: ""
+                )
+            } else {
+                val errorBody = response.bodyAsText()
+                println("❌ Token exchange failed: ${response.status}")
+                println("❌ Error response: $errorBody")
+                OAuthResult.Error("Token exchange failed: ${response.status}")
+            }
+
+        } catch (e: Exception) {
+            println("❌ Token exchange failed: ${e.message}")
+            e.printStackTrace()
+            OAuthResult.Error("Failed to exchange tokens: ${e.message}")
+        }
     }
     /**
      * 📄 Página HTML de éxito
@@ -293,5 +356,64 @@ class GoogleOAuthDesktop {
         </body>
         </html>
         """.trimIndent()
+    }
+}
+
+@Serializable
+data class TokenResponse(
+    val access_token: String? = null,
+    val id_token: String,
+    val token_type: String? = null,
+    val expires_in: Int? = null,
+    val refresh_token: String? = null,
+    val scope: String? = null
+)
+// Función para decodificar JWT (básica)
+private fun decodeJWTPayload(jwt: String): Map<String, Any> {
+    return try {
+        val parts = jwt.split(".")
+        if (parts.size < 2) {
+            println("⚠️ Invalid JWT format")
+            return mapOf("email" to "unknown@example.com")
+        }
+
+        // Decodificar payload (parte 2 del JWT)
+        val payload = parts[1]
+
+        // Agregar padding si es necesario
+        val paddedPayload = when (payload.length % 4) {
+            2 -> payload + "=="
+            3 -> payload + "="
+            else -> payload
+        }
+
+        val decodedBytes = Base64.getUrlDecoder().decode(paddedPayload)
+        val jsonString = String(decodedBytes)
+
+        println("🎯 JWT payload: $jsonString")
+
+        // Parsear JSON
+        val json = Json { ignoreUnknownKeys = true }
+        val jsonObject = json.parseToJsonElement(jsonString).jsonObject
+
+        // Convertir a Map<String, Any>
+        return jsonObject.mapValues { entry ->
+            when (val element = entry.value) {
+                is JsonPrimitive -> {
+                    when {
+                        element.isString -> element.content
+                        element.booleanOrNull != null -> element.boolean
+                        element.longOrNull != null -> element.long
+                        element.doubleOrNull != null -> element.double
+                        else -> element.content
+                    }
+                }
+                else -> element.toString()
+            }
+        }
+
+    } catch (e: Exception) {
+        println("❌ Error decoding JWT: ${e.message}")
+        mapOf("email" to "unknown@example.com")
     }
 }

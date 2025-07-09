@@ -1,6 +1,7 @@
 package services
 
 import com.example.*
+import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseToken
@@ -35,7 +36,9 @@ class AuthMiddleware {
             println("   Token (primeros 50 chars): ${idToken.take(50)}...")
 
             // 1. Validar token con Firebase
-            val decodedToken = FirebaseService.verifyIdToken(idToken)
+            val decodedToken = firebaseAuth.verifyIdToken(idToken, false) // No verificar audience automáticamente
+            // Validar manualmente el audience
+
             if (decodedToken == null) {
                 println("❌ Token verification failed")
                 return null
@@ -167,33 +170,79 @@ class AuthMiddleware {
 
     fun authenticateUser(idToken: String): AuthResult? {
         return try {
-            // 1. Validar token con Firebase
-            val decodedToken = FirebaseAuth.getInstance().verifyIdToken(idToken)
+            println("🔍 ===== DEBUG AUTHMIDDLEWARE =====")
+            println("🔑 Token recibido: ${idToken.take(50)}...")
 
-            // 2. Determinar permisos como DESKTOP_ADMIN (siempre SUPER_ADMIN)
+            // 1. Verificar estado de Firebase
+            println("🔥 Estado Firebase:")
+            println("   - App inicializada: ${FirebaseApp.getApps().isNotEmpty()}")
+            if (FirebaseApp.getApps().isNotEmpty()) {
+                val app = FirebaseApp.getInstance()
+                println("   - Project ID: ${app.options.projectId}")
+                println("   - Firebase Auth: ${FirebaseAuth.getInstance(app) != null}")
+            }
+
+            // 2. Intentar verificar token
+            println("🔍 Verificando token con Firebase...")
+            val decodedToken = try {
+                FirebaseAuth.getInstance().verifyIdToken(idToken)
+            } catch (e: Exception) {
+                println("❌ Error en verifyIdToken: ${e.message}")
+                println("❌ Tipo de excepción: ${e.javaClass.simpleName}")
+                if (e is FirebaseAuthException) {
+                    println("❌ Código de error Firebase: ${e.errorCode}")
+                    println("❌ Mensaje Firebase: ${e.message}")
+                }
+                throw e
+            }
+
+            println("✅ Token verificado exitosamente:")
+            println("   - UID: ${decodedToken.uid}")
+            println("   - Email: ${decodedToken.email}")
+            println("   - Issuer: ${decodedToken.issuer}")
+
+            // 3. Determinar permisos
+            println("🔧 Determinando permisos para DESKTOP_ADMIN...")
             val permissions = UserPermissions(
                 role = UserRole.ADMIN,
                 canCreateEvents = true,
                 canManageChannels = true,
-                canManageOrganizations = true,
-                requiresOrganization = false
+                canManageOrganizations = false,
+                requiresOrganization = true
             )
+            println("   - Role asignado: ${permissions.role}")
 
-            // 3. Crear/actualizar usuario y detectar si es nuevo
-            val (user, isNewUser) = ensureUserExists(decodedToken, UserRole.ADMIN)
+            // 4. Crear/actualizar usuario
+            println("👤 Creando/actualizando usuario...")
+            val (user) = ensureUserExists(decodedToken, UserRole.ADMIN)
+            println("   - Usuario ID: ${user.id}")
+            println("   - Email: ${user.email}")
 
-            AuthResult(
+            val result = AuthResult(
                 user = user,
                 permissions = permissions,
-                firebaseToken = decodedToken,
-                isNewUser = isNewUser  // ✅ NUEVO CAMPO
+                firebaseToken = decodedToken
             )
 
+            println("✅ AuthResult creado exitosamente")
+            println("🔍 ===== FIN DEBUG AUTHMIDDLEWARE =====")
+
+            result
+
         } catch (e: FirebaseAuthException) {
-            println("❌ Token inválido: ${e.message}")
+            println("❌ ===== ERROR FIREBASE AUTH =====")
+            println("❌ Código: ${e.errorCode}")
+            println("❌ Mensaje: ${e.message}")
+            println("❌ Causa: ${e.cause?.message}")
+            println("❌ ===== FIN ERROR =====")
             null
         } catch (e: Exception) {
-            println("❌ Error validando token: ${e.message}")
+            println("❌ ===== ERROR GENERAL =====")
+            println("❌ Tipo: ${e.javaClass.simpleName}")
+            println("❌ Mensaje: ${e.message}")
+            println("❌ Stack trace:")
+            e.printStackTrace()
+            println("❌ ===== FIN ERROR =====")
             null
         }
     }

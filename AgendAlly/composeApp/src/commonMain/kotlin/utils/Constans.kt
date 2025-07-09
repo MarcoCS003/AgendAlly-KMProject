@@ -40,8 +40,8 @@ object Constants {
     // ============== GOOGLE OAUTH ==============
 
     object GoogleOAuth {
-        const val CLIENT_ID = "113306869747-q2qi60ivb5pemm0clr89b8uivjn5cprc.apps.googleusercontent.com"
-        const val CLIENT_SECRET =   "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"
+        const val CLIENT_ID = ""
+        const val CLIENT_SECRET =  " "
         const val REDIRECT_URI = "http://localhost:8888/callback"
         const val SCOPE = "openid email profile"
 

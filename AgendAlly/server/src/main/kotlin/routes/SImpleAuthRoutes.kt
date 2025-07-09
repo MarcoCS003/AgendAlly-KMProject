@@ -89,9 +89,24 @@ fun Route.authRoutes() {
         // POST /api/auth/login - Login con Firebase token
         post("/login") {
             try {
+                println("🔍 ===== INICIO DEBUG LOGIN =====")
+
+                // 1. Debug de la request recibida
                 val request = call.receive<LoginRequest>()
+                println("📥 Request recibida:")
+                println("   - Email: ${request.email}")
+                println("   - ClientType: ${request.clientType}")
+                println("   - IdToken (primeros 50): ${request.idToken.take(50)}...")
+
+                // 2. Verificar headers
+                val authHeader = call.request.headers["Authorization"]
+                val clientTypeHeader = call.request.headers["X-Client-Type"]
+                println("📋 Headers:")
+                println("   - Authorization: $authHeader")
+                println("   - X-Client-Type: $clientTypeHeader")
 
                 if (request.idToken.isBlank()) {
+                    println("❌ Token vacío!")
                     call.respond(
                         HttpStatusCode.BadRequest,
                         ErrorResponse(error = "Token de Firebase requerido")
@@ -99,30 +114,59 @@ fun Route.authRoutes() {
                     return@post
                 }
 
-                // Usar tu AuthMiddleware existente
-                val authResult = authMiddleware.validateTokenAndPermissions(
-                    idToken = request.idToken,
-                    clientType = ClientType.DESKTOP_ADMIN  // ✅ CAMBIAR ESTA LÍNEA
-                )
+                // 3. Debug del token JWT
+                println("🔍 Analizando JWT:")
+                val parts = request.idToken.split(".")
+                if (parts.size >= 2) {
+                    try {
+                        val payload = parts[1]
+                        val paddedPayload = when (payload.length % 4) {
+                            2 -> payload + "=="
+                            3 -> payload + "="
+                            else -> payload
+                        }
+                        val decodedBytes = java.util.Base64.getUrlDecoder().decode(paddedPayload)
+                        val jsonString = String(decodedBytes)
+                        println("   - JWT Payload: $jsonString")
+                    } catch (e: Exception) {
+                        println("   - Error decodificando JWT: ${e.message}")
+                    }
+                }
 
+                // 4. Debug del AuthMiddleware
+                println("🔧 Llamando AuthMiddleware...")
+                val authResult = authMiddleware.authenticateUser(request.idToken)
+
+                println("📊 Resultado AuthMiddleware:")
                 if (authResult == null) {
+                    println("   - Resultado: NULL (fallo)")
                     call.respond(
                         HttpStatusCode.Unauthorized,
                         ErrorResponse(error = "Token inválido o expirado")
                     )
                     return@post
+                } else {
+                    println("   - Resultado: SUCCESS")
+                    println("   - Usuario: ${authResult.user.email}")
+                    println("   - Role: ${authResult.permissions.role}")
                 }
 
-                // Convertir a formato de respuesta
+                // 5. Convertir y responder
+                println("✅ Convirtiendo respuesta...")
                 val response = AuthAdapter.convertToLoginResponse(authResult)
+                println("📤 Enviando respuesta:")
+                println("   - Success: ${response.success}")
+                println("   - RequiresOrganizationSetup: ${response.requiresOrganizationSetup}")
+
                 call.respond(HttpStatusCode.OK, response)
+                println("🔍 ===== FIN DEBUG LOGIN =====")
 
             } catch (e: Exception) {
-                println("❌ Error en login: ${e.message}")
+                println("💥 ERROR EN LOGIN: ${e.message}")
                 e.printStackTrace()
                 call.respond(
                     HttpStatusCode.InternalServerError,
-                    ErrorResponse(error = "Error interno del servidor ${e.message}")
+                    ErrorResponse(error = "Error interno del servidor: ${e.message}")
                 )
             }
         }

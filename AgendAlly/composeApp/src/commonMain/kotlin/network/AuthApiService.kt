@@ -3,7 +3,10 @@ package network
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.http.*
+import io.ktor.utils.io.charsets.*
 import models.*
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 
 class AuthApiService {
 
@@ -86,13 +89,28 @@ class AuthApiService {
     /**
      * 🔐 Login real con Firebase token
      */
+    @OptIn(ExperimentalEncodingApi::class)
     suspend fun login(idToken: String): Result<LoginResponse> {
         return try {
+            println("🔍 Enviando token al backend:")
+            println("   - Primeros 50 chars: ${idToken.take(50)}...")
+            val parts = idToken.split(".")
+            if (parts.size >= 2) {
+                val payload = parts[1]
+                val paddedPayload = when (payload.length % 4) {
+                    2 -> payload + "=="
+                    3 -> payload + "="
+                    else -> payload
+                }
+
+            }
+
             val request = LoginRequest(
-                email = "", // Se extrae del token en el backend
+                email = "",
                 idToken = idToken,
                 clientType = HttpClientConfig.ClientTypes.DESKTOP_ADMIN
             )
+
 
             val response = client.post(HttpClientConfig.Endpoints.AUTH_LOGIN) {
                 setBody(request)
