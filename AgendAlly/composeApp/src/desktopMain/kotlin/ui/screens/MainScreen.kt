@@ -8,7 +8,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import auth.DesktopAuth
+import auth.TokenResponse
 import kotlinx.coroutines.launch
+import models.LoginRequest
 import repository.AuthResult
 import ui.components.AgendAllyNavigationRail
 import ui.components.NavigationScreen
@@ -37,6 +39,9 @@ fun MainScreen() {
     val isUserLoggedIn = currentUser != null
 
     val coroutineScope = rememberCoroutineScope()
+
+
+    var currentUserToken by remember { mutableStateOf<String?>(null) }
 
     Row(modifier = Modifier.fillMaxSize()) {
         // Navigation Rail con estado de login
@@ -105,19 +110,21 @@ fun MainScreen() {
 
                 NavigationScreen.LOGIN -> {
                     LoginScreen(
-                        onGoogleSignIn = {  // ← Agregar parámetro
+                        onGoogleSignIn = {
                             handleRealGoogleSignIn(
-                                useRealOAuth = true,    // ← Agregar este parámetro
+                                useRealOAuth = true,
                                 scope = coroutineScope,
                                 onLoading = { isLoading = it },
                                 onError = { error = it },
-                                onSuccess = { user, requiresSetup ->
+                                onSuccess = { user, requiresSetup, token ->  // ✅ RECIBIR token
                                     currentUser = user
+                                    currentUserToken = token  // ✅ GUARDAR token
 
                                     println("🔍 LOGIN SUCCESS:")
                                     println("   User: ${user.name}")
                                     println("   Email: ${user.email}")
                                     println("   RequiresSetup: $requiresSetup")
+                                    println("   Token saved: ${token?.take(50)}...")
 
                                     if (requiresSetup) {
                                         selectedScreen = NavigationScreen.ORGANIZATION_SETUP
@@ -127,13 +134,14 @@ fun MainScreen() {
                                 }
                             )
                         },
-                        isLoading = isLoading,  // ← Agregar esta línea
+                        isLoading = isLoading,
                         error = error
                     )
                 }
 
                 NavigationScreen.ORGANIZATION_SETUP -> {
                     OrganizationSetupScreen(
+                        userToken = currentUserToken ?: "tempToken",
                         onSetupComplete = {
                             // Setup exitoso, ir al dashboard
                             selectedScreen = NavigationScreen.CALENDAR
@@ -227,7 +235,7 @@ private fun handleRealGoogleSignIn(
     scope: kotlinx.coroutines.CoroutineScope,
     onLoading: (Boolean) -> Unit,
     onError: (String?) -> Unit,
-    onSuccess: (UserData, Boolean) -> Unit
+    onSuccess: (UserData, Boolean, String?) -> Unit  // ✅ AGREGAR token como parámetro
 ) {
     println("🚀 INICIANDO LOGIN...")
     scope.launch {
@@ -264,7 +272,11 @@ private fun handleRealGoogleSignIn(
                         hasOrganization = authResult.user.hasOrganization,
                         organizationName = authResult.user.organizationName
                     )
-                    onSuccess(uiUserData, authResult.requiresOrganizationSetup)
+
+                    // ✅ OBTENER EL TOKEN del authResult
+                    val userToken = authResult.token  // Necesitamos agregar esto a AuthResult
+
+                    onSuccess(uiUserData, authResult.requiresOrganizationSetup, userToken)
                 }
 
                 is AuthResult.Error -> {

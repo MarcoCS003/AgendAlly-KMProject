@@ -42,12 +42,6 @@ enum class UserRole {
     STUDENT         // Estudiante que consume eventos
 }
 
-@Serializable
-enum class ChannelType {
-    CAREER,         // Canal de carrera (TICS, Industrial, etc.)
-    DEPARTMENT,     // Departamento (Biblioteca, Centro Cómputo)
-    ADMINISTRATIVE  // Administrativo (Servicios Escolares, etc.)
-}
 
 @Serializable
 enum class EventType {
@@ -92,7 +86,6 @@ data class Channel(
     val name: String,
     val acronym: String,
     val description: String = "",
-    val type: ChannelType,
     val email: String? = null,
     val phone: String? = null,
     val isActive: Boolean = true,
@@ -155,7 +148,6 @@ data class UserSubscription(
     val userId: Int,
     val channelId: Int,
     val channelName: String,
-    val channelType: ChannelType,
     val organizationName: String, // ✅ CAMBIO: instituteName -> organizationName
     val subscribedAt: String,
     val isActive: Boolean = true,
@@ -370,7 +362,34 @@ data class CreateOrganizationRequest(
 )
 
 
+// AGREGAR estos modelos al final del archivo:
 
+@Serializable
+data class OrganizationSetupRequest(
+    val name: String,
+    val acronym: String,
+    val description: String = "",
+    val address: String,
+    val email: String,
+    val phone: String,
+    val studentNumber: Int = 0,
+    val teacherNumber: Int = 0,
+    val webSite: String? = null,
+    val facebook: String? = null,
+    val instagram: String? = null,
+    val twitter: String? = null,
+    val youtube: String? = null,
+    val linkedin: String? = null
+)
+
+@Serializable
+data class OrganizationSetupResponse(
+    val success: Boolean,
+    val message: String,
+    val organizationId: Int,
+    val name: String,
+    val acronym: String
+)
 // ============== CONFIGURACIÓN DE ROLES POR PLATAFORMA ==============
 
 object RoleAssignmentConfig {

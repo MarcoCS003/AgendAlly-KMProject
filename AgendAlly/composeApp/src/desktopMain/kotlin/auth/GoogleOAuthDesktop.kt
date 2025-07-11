@@ -225,16 +225,12 @@ class GoogleOAuthDesktop {
     private suspend fun exchangeCodeForTokens(authCode: String): OAuthResult {
         return try {
             println("🔄 Exchanging authorization code for tokens...")
-            println("🔑 Making request to ${Constants.GoogleOAuth.TOKEN_URL}")
 
-            // Crear cliente HTTP temporal
             val client = HttpClient {
-                install(ContentNegotiation) {
-                    json()
-                }
+                install(ContentNegotiation) { json() }
             }
 
-            // Hacer POST a Google Token endpoint
+            // ⚠️ CAMBIO IMPORTANTE: NO incluir client_secret para desktop apps
             val response = client.submitForm(
                 url = Constants.GoogleOAuth.TOKEN_URL,
                 formParameters = Parameters.build {
@@ -243,7 +239,6 @@ class GoogleOAuthDesktop {
                     append("code", authCode)
                     append("grant_type", "authorization_code")
                     append("redirect_uri", Constants.GoogleOAuth.REDIRECT_URI)
-                    // NO incluir client_secret para aplicaciones públicas/desktop
                 }
             )
 
@@ -251,15 +246,10 @@ class GoogleOAuthDesktop {
 
             if (response.status == HttpStatusCode.OK) {
                 val tokenResponse = response.body<TokenResponse>()
-
                 println("✅ Token exchange successful")
-                println("🎫 idToken received: ${tokenResponse.id_token.take(50)}...")
 
-                // Decodificar JWT para extraer información del usuario
                 val userInfo = decodeJWTPayload(tokenResponse.id_token)
                 val email = userInfo["email"] as? String ?: "unknown@example.com"
-
-                println("📧 User email extracted: $email")
 
                 OAuthResult.Success(
                     idToken = tokenResponse.id_token,
@@ -268,14 +258,11 @@ class GoogleOAuthDesktop {
                 )
             } else {
                 val errorBody = response.bodyAsText()
-                println("❌ Token exchange failed: ${response.status}")
-                println("❌ Error response: $errorBody")
+                println("❌ Token exchange failed: ${response.status} - $errorBody")
                 OAuthResult.Error("Token exchange failed: ${response.status}")
             }
-
         } catch (e: Exception) {
-            println("❌ Token exchange failed: ${e.message}")
-            e.printStackTrace()
+            println("❌ Exception: ${e.message}")
             OAuthResult.Error("Failed to exchange tokens: ${e.message}")
         }
     }

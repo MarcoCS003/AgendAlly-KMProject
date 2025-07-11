@@ -217,7 +217,6 @@ class OrganizationAssignmentService {
                 name = channelRow[Channels.name],
                 acronym = channelRow[Channels.acronym],
                 description = channelRow[Channels.description],
-                type = ChannelType.valueOf(channelRow[Channels.type]),
                 email = channelRow[Channels.email],
                 phone = channelRow[Channels.phone],
                 isActive = channelRow[Channels.isActive],

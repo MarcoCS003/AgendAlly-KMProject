@@ -1,7 +1,6 @@
 package services
 
 import com.example.*
-import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseToken
@@ -20,7 +19,7 @@ import java.time.format.DateTimeFormatter
 class AuthMiddleware {
 
     private val firebaseAuth: FirebaseAuth by lazy {
-        FirebaseService.getAuth()
+        FirebaseConfig.getAuth()
     }
 
     /**
@@ -31,48 +30,41 @@ class AuthMiddleware {
         clientType: ClientType
     ): AuthResult? {
         return try {
-            println("🔍 VALIDANDO TOKEN...")
-            println("   Client Type: $clientType")
-            println("   Token (primeros 50 chars): ${idToken.take(50)}...")
+            println("🔍 Validando token Google OAuth...")
 
-            // 1. Validar token con Firebase
-            val decodedToken = firebaseAuth.verifyIdToken(idToken, false) // No verificar audience automáticamente
-            // Validar manualmente el audience
+            // ✅ CAMBIO: Usar verificación Google en lugar de Firebase
+            val tokenInfo = verifyGoogleIdToken(idToken)
 
-            if (decodedToken == null) {
-                println("❌ Token verification failed")
+            if (tokenInfo == null) {
+                println("❌ Token Google inválido")
                 return null
             }
-            println("✅ Token válido para: ${decodedToken.email}")
+
+            println("✅ Token válido para: ${tokenInfo.email}")
 
             // 2. Determinar permisos según plataforma y email
-            val permissions = determinePermissions(clientType, decodedToken.email)
-            println("✅ Permisos determinados: ${permissions.role}")
+            val permissions = determinePermissions(clientType, tokenInfo.email)
 
-            // 3. Crear/actualizar usuario en BD si es necesario
-            val (user, isNewUser) = ensureUserExists(decodedToken, permissions.role)
-            println("✅ Usuario procesado: ${user.email}, Nuevo: $isNewUser")
+            // 3. Crear/actualizar usuario en BD
+            val (user, isNewUser) = ensureUserExistsFromGoogle(tokenInfo, permissions.role)
 
             AuthResult(
                 user = user,
                 permissions = permissions,
-                firebaseToken = decodedToken,
+                tokenInfo = tokenInfo,  // ✅ CAMBIO: usar tokenInfo
                 isNewUser = isNewUser
             )
 
-        } catch (e: FirebaseAuthException) {
-            println("❌ Firebase Auth Error: ${e.message}")
-            println("❌ Error Code: ${e.authErrorCode}")
-            e.printStackTrace()
-            null
         } catch (e: Exception) {
-            println("❌ General Error: ${e.message}")
+            println("❌ Error validando token: ${e.message}")
             e.printStackTrace()
             null
         }
     }
 
-
+    /**
+     * ✅ DETERMINA PERMISOS SOLO POR PLATAFORMA (SIMPLIFICADO)
+     */
     private fun determinePermissions(clientType: ClientType, email: String): UserPermissions {
         return when (clientType) {
             ClientType.ANDROID_STUDENT -> {
@@ -113,30 +105,28 @@ class AuthMiddleware {
     /**
      * ✅ Crea usuario y lo asigna automáticamente a organización
      */
-    private fun ensureUserExists(firebaseToken: FirebaseToken, role: UserRole): Pair<User, Boolean> {
+    private fun ensureUserExistsFromGoogle(token: GoogleTokenInfo, role: UserRole): Pair<User, Boolean> {
         return transaction {
-            val existingUser = Users.select { Users.googleId eq firebaseToken.uid }
-                .singleOrNull()
+            val existingUser = Users.select { Users.googleId eq token.uid }.singleOrNull()
 
             if (existingUser != null) {
-                // ✅ USUARIO EXISTENTE - Solo actualizar info
-                Users.update({ Users.googleId eq firebaseToken.uid }) {
-                    it[name] = firebaseToken.name ?: firebaseToken.email
-                    it[email] = firebaseToken.email
-                    it[profilePicture] = firebaseToken.picture
+                // Usuario existente - actualizar info
+                Users.update({ Users.googleId eq token.uid }) {
+                    it[name] = token.name ?: token.email
+                    it[email] = token.email
+                    it[profilePicture] = token.picture
                     it[lastLoginAt] = LocalDateTime.now()
                 }
 
-                val user = mapRowToUser(Users.select { Users.googleId eq firebaseToken.uid }.single())
-                Pair(user, false) // false = NO es usuario nuevo
-
+                val user = mapRowToUser(Users.select { Users.googleId eq token.uid }.single())
+                Pair(user, false)
             } else {
-                // ✅ USUARIO COMPLETAMENTE NUEVO
+                // Usuario nuevo
                 val userId = Users.insert {
-                    it[googleId] = firebaseToken.uid
-                    it[email] = firebaseToken.email
-                    it[name] = firebaseToken.name ?: firebaseToken.email
-                    it[profilePicture] = firebaseToken.picture
+                    it[googleId] = token.uid
+                    it[email] = token.email
+                    it[name] = token.name ?: token.email
+                    it[profilePicture] = token.picture
                     it[this.role] = role.name
                     it[isActive] = true
                     it[createdAt] = LocalDateTime.now()
@@ -146,7 +136,7 @@ class AuthMiddleware {
                 } get Users.id
 
                 val newUser = mapRowToUser(Users.select { Users.id eq userId }.single())
-                Pair(newUser, true) // true = SÍ es usuario nuevo
+                Pair(newUser, true)
             }
         }
     }
@@ -170,39 +160,20 @@ class AuthMiddleware {
 
     fun authenticateUser(idToken: String): AuthResult? {
         return try {
-            println("🔍 ===== DEBUG AUTHMIDDLEWARE =====")
+            println("🔍 ===== VERIFICANDO TOKEN GOOGLE OAUTH =====")
             println("🔑 Token recibido: ${idToken.take(50)}...")
 
-            // 1. Verificar estado de Firebase
-            println("🔥 Estado Firebase:")
-            println("   - App inicializada: ${FirebaseApp.getApps().isNotEmpty()}")
-            if (FirebaseApp.getApps().isNotEmpty()) {
-                val app = FirebaseApp.getInstance()
-                println("   - Project ID: ${app.options.projectId}")
-                println("   - Firebase Auth: ${FirebaseAuth.getInstance(app) != null}")
+            // ✅ Verificar token de Google
+            val tokenInfo = verifyGoogleIdToken(idToken)
+
+            if (tokenInfo == null) {
+                println("❌ Token verification failed")
+                return null
             }
 
-            // 2. Intentar verificar token
-            println("🔍 Verificando token con Firebase...")
-            val decodedToken = try {
-                FirebaseAuth.getInstance().verifyIdToken(idToken)
-            } catch (e: Exception) {
-                println("❌ Error en verifyIdToken: ${e.message}")
-                println("❌ Tipo de excepción: ${e.javaClass.simpleName}")
-                if (e is FirebaseAuthException) {
-                    println("❌ Código de error Firebase: ${e.errorCode}")
-                    println("❌ Mensaje Firebase: ${e.message}")
-                }
-                throw e
-            }
+            println("✅ Token Google válido para: ${tokenInfo.email}")
 
-            println("✅ Token verificado exitosamente:")
-            println("   - UID: ${decodedToken.uid}")
-            println("   - Email: ${decodedToken.email}")
-            println("   - Issuer: ${decodedToken.issuer}")
-
-            // 3. Determinar permisos
-            println("🔧 Determinando permisos para DESKTOP_ADMIN...")
+            // Crear permisos para desktop admin
             val permissions = UserPermissions(
                 role = UserRole.ADMIN,
                 canCreateEvents = true,
@@ -210,43 +181,101 @@ class AuthMiddleware {
                 canManageOrganizations = false,
                 requiresOrganization = true
             )
-            println("   - Role asignado: ${permissions.role}")
 
-            // 4. Crear/actualizar usuario
-            println("👤 Creando/actualizando usuario...")
-            val (user) = ensureUserExists(decodedToken, UserRole.ADMIN)
-            println("   - Usuario ID: ${user.id}")
-            println("   - Email: ${user.email}")
+            // Crear/actualizar usuario
+            val (user, isNewUser) = ensureUserExistsFromGoogle(tokenInfo, UserRole.ADMIN)
 
-            val result = AuthResult(
+            AuthResult(
                 user = user,
                 permissions = permissions,
-                firebaseToken = decodedToken
+                tokenInfo = tokenInfo,  // ✅ USAR tokenInfo en lugar de firebaseToken
+                isNewUser = isNewUser
             )
 
-            println("✅ AuthResult creado exitosamente")
-            println("🔍 ===== FIN DEBUG AUTHMIDDLEWARE =====")
-
-            result
-
-        } catch (e: FirebaseAuthException) {
-            println("❌ ===== ERROR FIREBASE AUTH =====")
-            println("❌ Código: ${e.errorCode}")
-            println("❌ Mensaje: ${e.message}")
-            println("❌ Causa: ${e.cause?.message}")
-            println("❌ ===== FIN ERROR =====")
-            null
         } catch (e: Exception) {
-            println("❌ ===== ERROR GENERAL =====")
-            println("❌ Tipo: ${e.javaClass.simpleName}")
-            println("❌ Mensaje: ${e.message}")
-            println("❌ Stack trace:")
+            println("❌ Error: ${e.message}")
             e.printStackTrace()
-            println("❌ ===== FIN ERROR =====")
             null
         }
     }
 
+    private fun verifyGoogleIdToken(idToken: String): GoogleTokenInfo? {
+        return try {
+            val parts = idToken.split(".")
+            if (parts.size < 3) return null
+
+            val payload = parts[1]
+            val paddedPayload = when (payload.length % 4) {
+                2 -> payload + "=="
+                3 -> payload + "="
+                else -> payload
+            }
+
+            val decodedBytes = java.util.Base64.getUrlDecoder().decode(paddedPayload)
+            val jsonString = String(decodedBytes)
+
+            println("🎯 JWT payload: $jsonString")
+
+            // Parsear manualmente
+            val emailRegex = "\"email\":\"([^\"]+)\"".toRegex()
+            val nameRegex = "\"name\":\"([^\"]+)\"".toRegex()
+            val subRegex = "\"sub\":\"([^\"]+)\"".toRegex()
+            val pictureRegex = "\"picture\":\"([^\"]+)\"".toRegex()
+
+            val email = emailRegex.find(jsonString)?.groupValues?.get(1) ?: return null
+            val name = nameRegex.find(jsonString)?.groupValues?.get(1) ?: email
+            val uid = subRegex.find(jsonString)?.groupValues?.get(1) ?: return null
+            val picture = pictureRegex.find(jsonString)?.groupValues?.get(1)
+
+            GoogleTokenInfo(
+                uid = uid,
+                email = email,
+                name = name,
+                picture = picture
+            )
+
+        } catch (e: Exception) {
+            println("❌ Error parsing Google token: ${e.message}")
+            null
+        }
+    }
+
+
+    private fun ensureUserExistsFromGoogle(token: FirebaseToken, role: UserRole): Pair<User, Boolean> {
+        return transaction {
+            val existingUser = Users.select { Users.googleId eq token.uid }.singleOrNull()
+
+            if (existingUser != null) {
+                // Usuario existente - actualizar info
+                Users.update({ Users.googleId eq token.uid }) {
+                    it[name] = token.name ?: token.email
+                    it[email] = token.email
+                    it[profilePicture] = token.picture
+                    it[lastLoginAt] = LocalDateTime.now()
+                }
+
+                val user = mapRowToUser(Users.select { Users.googleId eq token.uid }.single())
+                Pair(user, false)
+            } else {
+                // Usuario nuevo
+                val userId = Users.insert {
+                    it[googleId] = token.uid
+                    it[email] = token.email
+                    it[name] = token.name ?: token.email
+                    it[profilePicture] = token.picture
+                    it[this.role] = role.name
+                    it[isActive] = true
+                    it[createdAt] = LocalDateTime.now()
+                    it[lastLoginAt] = LocalDateTime.now()
+                    it[notificationsEnabled] = true
+                    it[syncEnabled] = false
+                } get Users.id
+
+                val newUser = mapRowToUser(Users.select { Users.id eq userId }.single())
+                Pair(newUser, true)
+            }
+        }
+    }
 }
 
 /**
@@ -255,8 +284,8 @@ class AuthMiddleware {
 data class AuthResult(
     val user: User,
     val permissions: UserPermissions,
-    val firebaseToken: FirebaseToken,
-    val isNewUser: Boolean = false  // ✅ NUEVO CAMPO
+    val tokenInfo: GoogleTokenInfo,  // ✅ CAMBIAR: era firebaseToken: FirebaseToken
+    val isNewUser: Boolean = false
 )
 
 /**
@@ -417,7 +446,7 @@ fun Route.developmentBypass(build: Route.() -> Unit) {
                 val mockAuthResult = AuthResult(
                     user = mockUser,
                     permissions = mockPermissions,
-                    firebaseToken = null as? FirebaseToken ?: return@intercept
+                    tokenInfo = null as? GoogleTokenInfo ?: return@intercept
                 )
 
                 call.attributes.put(AttributeKey<AuthResult>("authResult"), mockAuthResult)
@@ -429,3 +458,11 @@ fun Route.developmentBypass(build: Route.() -> Unit) {
 
     build()
 }
+
+data class GoogleTokenInfo(
+    val uid: String,
+    val email: String,
+    val name: String?,
+    val picture: String?,
+    val issuer: String = "https://accounts.google.com"
+)

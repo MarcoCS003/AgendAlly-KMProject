@@ -8,13 +8,14 @@ import androidx.compose.ui.window.application
 import ui.AgendAllyApp
 
 
-
 fun main() = application {
+
     Window(
         onCloseRequest = ::exitApplication,
         title = "Academic Ally - Gestión de Eventos Académicos",
         state = WindowState(width = 1200.dp, height = 800.dp)
     ) {
         AgendAllyApp()
+
     }
 }

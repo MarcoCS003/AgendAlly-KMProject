@@ -21,9 +21,10 @@ import repository.AuthRepo
 import repository.AuthResult
 import utils.Constants
 
-@OptIn(ExperimentalMaterial3Api::class)
+
 @Composable
 fun OrganizationSetupScreen(
+    userToken : String,
     onSetupComplete: () -> Unit,
     onBackToLogin: () -> Unit,
     modifier: Modifier = Modifier
@@ -35,10 +36,6 @@ fun OrganizationSetupScreen(
     var address by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
-
-    // Estados del formulario - NÚMEROS
-    var studentNumber by remember { mutableStateOf("") }
-    var teacherNumber by remember { mutableStateOf("") }
 
     // Estados del formulario - REDES SOCIALES (OPCIONALES)
     var website by remember { mutableStateOf("") }
@@ -124,14 +121,15 @@ fun OrganizationSetupScreen(
                 address = address.trim(),
                 email = email.trim(),
                 phone = phone.trim(),
-                studentNumber = studentNumber.toIntOrNull() ?: 0,
-                teacherNumber = teacherNumber.toIntOrNull() ?: 0,
+                studentNumber = 0,
+                teacherNumber = 0,
                 website = website.trim().takeIf { it.isNotBlank() },
                 facebook = facebook.trim().takeIf { it.isNotBlank() },
                 instagram = instagram.trim().takeIf { it.isNotBlank() },
                 twitter = twitter.trim().takeIf { it.isNotBlank() },
                 youtube = youtube.trim().takeIf { it.isNotBlank() },
-                linkedin = linkedin.trim().takeIf { it.isNotBlank() }
+                linkedin = linkedin.trim().takeIf { it.isNotBlank() },
+                userToken = userToken
             )
 
             isLoading = false
@@ -227,7 +225,7 @@ fun OrganizationSetupScreen(
                             value = organizationName,
                             onValueChange = { organizationName = it; nameError = null },
                             label = { Text("Nombre de la Organización *") },
-                            placeholder = { Text("Instituto Tecnológico de Puebla") },
+                            placeholder = { Text("Nombre de la Organización") },
                             leadingIcon = { Icon(Icons.Default.School, contentDescription = null) },
                             isError = nameError != null,
                             supportingText = nameError?.let { { Text(it) } },
@@ -242,7 +240,7 @@ fun OrganizationSetupScreen(
                                 acronymError = null
                             },
                             label = { Text("Acrónimo *") },
-                            placeholder = { Text("ITP") },
+                            placeholder = { Text("Acrónimo") },
                             leadingIcon = { Icon(Icons.Default.Tag, contentDescription = null) },
                             isError = acronymError != null,
                             supportingText = acronymError?.let { { Text(it) } },
@@ -277,7 +275,7 @@ fun OrganizationSetupScreen(
                             value = address,
                             onValueChange = { address = it; addressError = null },
                             label = { Text("Dirección *") },
-                            placeholder = { Text("Av. Tecnológico 420, Puebla, México") },
+                            placeholder = { Text("Avenida 420, Puebla, México") },
                             leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
                             isError = addressError != null,
                             supportingText = addressError?.let { { Text(it) } },
@@ -289,8 +287,8 @@ fun OrganizationSetupScreen(
                         OutlinedTextField(
                             value = email,
                             onValueChange = { email = it; emailError = null },
-                            label = { Text("Email Institucional *") },
-                            placeholder = { Text("contacto@itp.edu.mx") },
+                            label = { Text("Email *") },
+                            placeholder = { Text("correo de contacto") },
                             leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                             isError = emailError != null,
@@ -303,7 +301,7 @@ fun OrganizationSetupScreen(
                             value = phone,
                             onValueChange = { phone = it; phoneError = null },
                             label = { Text("Teléfono *") },
-                            placeholder = { Text("+52 222 123 4567") },
+                            placeholder = { Text("Telefono de contacto de la organización") },
                             leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                             isError = phoneError != null,
@@ -312,31 +310,6 @@ fun OrganizationSetupScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = studentNumber,
-                                onValueChange = { studentNumber = it.filter { char -> char.isDigit() } },
-                                label = { Text("Estudiantes") },
-                                placeholder = { Text("5000") },
-                                leadingIcon = { Icon(Icons.Default.People, contentDescription = null) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                enabled = !isLoading,
-                                modifier = Modifier.weight(1f)
-                            )
-
-                            OutlinedTextField(
-                                value = teacherNumber,
-                                onValueChange = { teacherNumber = it.filter { char -> char.isDigit() } },
-                                label = { Text("Profesores") },
-                                placeholder = { Text("200") },
-                                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                enabled = !isLoading,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
                     }
                 }
 
@@ -364,7 +337,7 @@ fun OrganizationSetupScreen(
                             value = facebook,
                             onValueChange = { facebook = it },
                             label = { Text("Facebook") },
-                            placeholder = { Text("https://facebook.com/ITP") },
+                            placeholder = { Text("https://facebook.com/user") },
                             leadingIcon = { Icon(Icons.Default.Facebook, contentDescription = null) },
                             enabled = !isLoading,
                             modifier = Modifier.fillMaxWidth()
@@ -374,7 +347,7 @@ fun OrganizationSetupScreen(
                             value = instagram,
                             onValueChange = { instagram = it },
                             label = { Text("Instagram") },
-                            placeholder = { Text("@itp_oficial") },
+                            placeholder = { Text("https://instagram.com/user") },
                             leadingIcon = { Icon(Icons.Default.CameraAlt, contentDescription = null) },
                             enabled = !isLoading,
                             modifier = Modifier.fillMaxWidth()
@@ -387,7 +360,7 @@ fun OrganizationSetupScreen(
                                 value = twitter,
                                 onValueChange = { twitter = it },
                                 label = { Text("Twitter/X") },
-                                placeholder = { Text("@ITP_Oficial") },
+                                placeholder = { Text("https://x.com/user") },
                                 enabled = !isLoading,
                                 modifier = Modifier.weight(1f)
                             )
@@ -396,7 +369,7 @@ fun OrganizationSetupScreen(
                                 value = youtube,
                                 onValueChange = { youtube = it },
                                 label = { Text("YouTube") },
-                                placeholder = { Text("ITP Oficial") },
+                                placeholder = { Text("https://youtube.com/user") },
                                 enabled = !isLoading,
                                 modifier = Modifier.weight(1f)
                             )
@@ -406,7 +379,7 @@ fun OrganizationSetupScreen(
                             value = linkedin,
                             onValueChange = { linkedin = it },
                             label = { Text("LinkedIn") },
-                            placeholder = { Text("instituto-tecnologico-puebla") },
+                            placeholder = { Text("") },
                             leadingIcon = { Icon(Icons.Default.Business, contentDescription = null) },
                             enabled = !isLoading,
                             modifier = Modifier.fillMaxWidth()

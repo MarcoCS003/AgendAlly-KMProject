@@ -16,7 +16,7 @@ import java.time.LocalDateTime
  */
 object Organizations : Table("organizations") {
     val id = integer("id").autoIncrement()
-    val acronym = varchar("acronym", 10).uniqueIndex()
+    val acronym = varchar("acronym", 10)
     val name = varchar("name", 255)
     val description = text("description").default("")
     val address = text("address")

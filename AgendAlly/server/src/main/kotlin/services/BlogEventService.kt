@@ -212,8 +212,6 @@ class BlogEventsService {
             address = row[Organizations.address],
             email = row[Organizations.email],
             phone = row[Organizations.phone],
-            studentNumber = row[Organizations.studentNumber],
-            teacherNumber = row[Organizations.teacherNumber],
             logoUrl = row[Organizations.logoUrl],
             webSite = row[Organizations.webSite],
             facebook = row[Organizations.facebook],
@@ -221,10 +219,12 @@ class BlogEventsService {
             twitter = row[Organizations.twitter],
             youtube = row[Organizations.youtube],
             linkedin = row[Organizations.linkedin],
-            channels = emptyList(), // No cargar canales aquí para evitar recursión
+            channels = emptyList(),
             isActive = row[Organizations.isActive],
             createdAt = row[Organizations.createdAt].format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-            updatedAt = row[Organizations.updatedAt]?.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            updatedAt = row[Organizations.updatedAt]?.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+            studentNumber = 0,
+            teacherNumber = 0
         )
     }
 }

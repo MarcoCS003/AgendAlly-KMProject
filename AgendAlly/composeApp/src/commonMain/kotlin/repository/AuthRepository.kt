@@ -34,7 +34,8 @@ class AuthRepository {
                     AuthResult.Success(
                         user = userData,
                         requiresOrganizationSetup = loginResponse.requiresOrganizationSetup,
-                        message = loginResponse.message
+                        message = loginResponse.message,
+                        token = idToken
                     )
                 } else {
                     AuthResult.Error("Login failed: ${loginResponse.message}")
@@ -103,11 +104,10 @@ class AuthRepository {
         twitter: String? = null,
         youtube: String? = null,
         linkedin: String? = null,
-        userToken: String? = null
+        userToken: String
     ): AuthResult {
         return try {
             delay(Constants.UI.LOADING_DELAY_MS)
-
             val setupResult = authApiService.setupOrganization(
                 name = name,
                 acronym = acronym,
@@ -123,7 +123,7 @@ class AuthRepository {
                 twitter = twitter,
                 youtube = youtube,
                 linkedin = linkedin,
-                authToken = userToken ?: "temp-token"
+                authToken = userToken
             )
 
             if (setupResult.isSuccess) {
@@ -135,7 +135,7 @@ class AuthRepository {
                     AuthResult.Success(
                         user = userData,
                         requiresOrganizationSetup = false,
-                        message = response.message
+                        message = response.message,
                     )
                 } else {
                     AuthResult.Error("Setup failed: ${response.message}")
@@ -160,7 +160,8 @@ sealed class AuthResult {
     data class Success(
         val user: UserData,
         val requiresOrganizationSetup: Boolean = false,
-        val message: String? = null
+        val message: String? = null,
+        val token :String? = null
     ) : AuthResult()
 
     data class Error(

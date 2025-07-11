@@ -15,15 +15,12 @@ object AuthAdapter {
         return LoginResponse(
             success = true,
             user = user,
-            organization = null,
-            requiresOrganizationSetup = authResult.isNewUser, // ✅ BASADO EN SI ES NUEVO
-            message = if (authResult.isNewUser) {
-                "Usuario nuevo: debe configurar su organización"
-            } else {
-                "Bienvenido de vuelta"
-            }
+            organization = null, // Siempre null para MVP
+            requiresOrganizationSetup = true, // Siempre requiere setup
+            message = "Debe configurar su organización"
         )
     }
+
     private fun convertToUserResponse(user: User): UserResponse {
         return UserResponse(
             id = user.id,
@@ -38,3 +35,4 @@ object AuthAdapter {
         )
     }
 }
+

@@ -20,17 +20,9 @@ fun Route.channelsRoutes() {
         get {
             try {
                 val organizationId = call.request.queryParameters["organizationId"]?.toIntOrNull()
-                val type = call.request.queryParameters["type"]?.let {
-                    try {
-                        ChannelType.valueOf(it.uppercase())
-                    } catch (e: Exception) {
-                        null
-                    }
-                }
 
                 val response = when {
                     organizationId != null -> channelsService.getChannelsByOrganization(organizationId)
-                    type != null -> channelsService.getChannelsByType(type)
                     else -> channelsService.getAllChannels()
                 }
 
@@ -90,28 +82,6 @@ fun Route.channelsRoutes() {
             }
         }
 
-        // GET /api/channels/type/{type} - Obtener canales por tipo
-        get("/type/{type}") {
-            try {
-                val typeParam = call.parameters["type"]
-                val channelType = try {
-                    ChannelType.valueOf(typeParam?.uppercase() ?: "")
-                } catch (e: Exception) {
-                    call.respond(HttpStatusCode.BadRequest, ErrorResponse(error = "Tipo de canal inválido"))
-                    return@get
-                }
-
-                val organizationId = call.request.queryParameters["organizationId"]?.toIntOrNull()
-                val response = channelsService.getChannelsByType(channelType, organizationId)
-
-                call.respond(HttpStatusCode.OK, response)
-            } catch (e: Exception) {
-                call.respond(
-                    HttpStatusCode.InternalServerError,
-                    ErrorResponse(error = "Error obteniendo canales por tipo: ${e.message}")
-                )
-            }
-        }
 
         // GET /api/channels/{id}/events - Obtener eventos de un canal
         get("/{id}/events") {

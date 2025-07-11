@@ -7,6 +7,7 @@ import ui.screens.MainScreen
 
 @Composable
 fun AgendAllyApp() {
+
     MaterialTheme {
         MainScreen()
     }

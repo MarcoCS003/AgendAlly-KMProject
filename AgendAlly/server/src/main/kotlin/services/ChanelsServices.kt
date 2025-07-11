@@ -49,35 +49,6 @@ class ChannelsService {
     }
 
     /**
-     * Obtener canales por tipo
-     */
-    fun getChannelsByType(type: ChannelType, organizationId: Int? = null): ChannelsResponse = transaction {
-        val query = Channels
-            .join(Organizations, JoinType.INNER, Channels.organizationId, Organizations.id)
-            .select {
-                (Channels.type eq type.name) and
-                        (Channels.isActive eq true) and
-                        (Organizations.isActive eq true)
-            }
-
-        val finalQuery = if (organizationId != null) {
-            query.andWhere { Channels.organizationId eq organizationId }
-        } else {
-            query
-        }
-
-        val channels = finalQuery
-            .orderBy(Organizations.name to SortOrder.ASC, Channels.name to SortOrder.ASC)
-            .map { mapRowToChannel(it) }
-
-        ChannelsResponse(
-            channels = channels,
-            total = channels.size,
-            organizationId = organizationId
-        )
-    }
-
-    /**
      * Obtener canal por ID
      */
     fun getChannelById(channelId: Int): Channel? = transaction {
@@ -134,7 +105,6 @@ class ChannelsService {
             name = row[Channels.name],
             acronym = row[Channels.acronym],
             description = row[Channels.description],
-            type = ChannelType.valueOf(row[Channels.type]), // ✅ CORREGIDO
             email = row[Channels.email],
             phone = row[Channels.phone],
             isActive = row[Channels.isActive],

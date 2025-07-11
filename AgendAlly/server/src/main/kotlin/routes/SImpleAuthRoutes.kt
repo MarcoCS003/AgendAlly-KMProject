@@ -52,6 +52,82 @@ fun Route.authRoutes() {
     val authMiddleware = AuthMiddleware()
 
     route("/api/auth") {
+        post("/organization-setup") {
+            try {
+                println("🏢 ===== SETUP ORGANIZACIÓN =====")
+
+                // 1. Obtener token del header Authorization
+                val authHeader = call.request.headers["Authorization"]
+                if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                    call.respond(
+                        HttpStatusCode.Unauthorized,
+                        ErrorResponse(error = "Token requerido")
+                    )
+                    return@post
+                }
+
+                val token = authHeader.removePrefix("Bearer ")
+                println("🔑 Token recibido: ${token.take(50)}...")
+
+                // 2. Validar token y obtener usuario
+                val authResult = authMiddleware.authenticateUser(token)
+                if (authResult == null) {
+                    call.respond(
+                        HttpStatusCode.Unauthorized,
+                        ErrorResponse(error = "Token inválido")
+                    )
+                    return@post
+                }
+
+                // 3. Recibir datos de organización
+                val request = call.receive<OrganizationSetupRequest>()
+                println("📋 Datos organización:")
+                println("   - Nombre: ${request.name}")
+                println("   - Acrónimo: ${request.acronym}")
+                println("   - Email: ${request.email}")
+
+                // 4. ✅ CREAR ORGANIZACIÓN REAL EN BD
+                val setupService = OrganizationSetupService()
+
+                val organizationId = setupService.createOrganizationWithBasicChannels(
+                    name = request.name,
+                    acronym = request.acronym,
+                    description = request.description,
+                    address = request.address,
+                    email = request.email,
+                    phone = request.phone,
+                    studentNumber = request.studentNumber,
+                    teacherNumber = request.teacherNumber,
+                    website = request.webSite,
+                    facebook = request.facebook,
+                    instagram = request.instagram,
+                    twitter = request.twitter,
+                    youtube = request.youtube,
+                    linkedin = request.linkedin,
+                    adminUserId = authResult.user.id
+                )
+
+                // 5. Responder con datos reales
+                val response = OrganizationSetupResponse(
+                    success = true,
+                    message = "Organización '${request.name}' creada exitosamente",
+                    organizationId = organizationId,
+                    name = request.name,
+                    acronym = request.acronym
+                )
+
+                call.respond(HttpStatusCode.Created, response)
+                println("✅ Organización configurada exitosamente con ID: $organizationId")
+
+            } catch (e: Exception) {
+                println("❌ Error setup organización: ${e.message}")
+                e.printStackTrace()
+                call.respond(
+                    HttpStatusCode.InternalServerError,
+                    ErrorResponse(error = "Error configurando organización: ${e.message}")
+                )
+            }
+        }
         post("/test-login") {
             try {
                 val request = call.receive<LoginRequest>()
@@ -263,7 +339,7 @@ fun Route.authRoutes() {
                     val mockAuthResult = AuthResult(
                         user = mockUser,
                         permissions = mockPermissions,
-                        firebaseToken = null!! // Solo para pruebas
+                        tokenInfo = null!! // Solo para pruebas
                     )
 
                     // Usar el adapter para convertir

@@ -105,7 +105,6 @@ class OrganizationService {
                 name = channelRow[Channels.name],
                 acronym = channelRow[Channels.acronym],
                 description = channelRow[Channels.description],
-                type = ChannelType.valueOf(channelRow[Channels.type]), // ✅ CORREGIDO
                 email = channelRow[Channels.email],
                 phone = channelRow[Channels.phone],
                 isActive = channelRow[Channels.isActive],
@@ -149,7 +148,6 @@ class OrganizationService {
             name = row[Channels.name],
             acronym = row[Channels.acronym],
             description = row[Channels.description],
-            type = ChannelType.valueOf(row[Channels.type]), // ✅ CORREGIDO
             email = row[Channels.email],
             phone = row[Channels.phone],
             isActive = row[Channels.isActive],
