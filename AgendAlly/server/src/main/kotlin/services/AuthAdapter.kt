@@ -9,29 +9,29 @@ import com.example.UserResponse
  */
 object AuthAdapter {
 
+    private fun convertToUserResponse(user: User): UserResponse {
+        return UserResponse(
+            id = user.id,
+            firebaseUid = user.googleId,
+            email = user.email,
+            name = user.name,
+            profilePicture = user.profilePicture,
+            role = user.role.name,
+            organizationId = user.organizationId, // ✅ CAMBIAR: usar organizationId real
+            createdAt = user.createdAt,
+            lastLoginAt = user.lastLoginAt
+        )
+    }
+
     fun convertToLoginResponse(authResult: AuthResult): LoginResponse {
         val user = convertToUserResponse(authResult.user)
 
         return LoginResponse(
             success = true,
             user = user,
-            organization = null, // Siempre null para MVP
-            requiresOrganizationSetup = true, // Siempre requiere setup
-            message = "Debe configurar su organización"
-        )
-    }
-
-    private fun convertToUserResponse(user: User): UserResponse {
-        return UserResponse(
-            id = user.id,
-            firebaseUid = user.googleId, // Usar googleId como firebaseUid
-            email = user.email,
-            name = user.name,
-            profilePicture = user.profilePicture,
-            role = user.role.name,
-            organizationId = null, // Siempre null para MVP
-            createdAt = user.createdAt,
-            lastLoginAt = user.lastLoginAt
+            organization = null,
+            requiresOrganizationSetup = user.organizationId == null, // ✅ CAMBIAR: solo requiere setup si no tiene org
+            message = if (user.organizationId == null) "Debe configurar su organización" else "Login exitoso"
         )
     }
 }

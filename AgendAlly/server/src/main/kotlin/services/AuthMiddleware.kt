@@ -149,6 +149,7 @@ class AuthMiddleware {
             name = row[Users.name],
             profilePicture = row[Users.profilePicture],
             role = UserRole.valueOf(row[Users.role]),
+            organizationId = row[Users.organizationId],
             isActive = row[Users.isActive],
             notificationsEnabled = row[Users.notificationsEnabled],
             syncEnabled = row[Users.syncEnabled],
@@ -157,7 +158,6 @@ class AuthMiddleware {
             lastSyncAt = row[Users.lastSyncAt]?.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         )
     }
-
     fun authenticateUser(idToken: String): AuthResult? {
         return try {
             println("🔍 ===== VERIFICANDO TOKEN GOOGLE OAUTH =====")

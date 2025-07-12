@@ -1,167 +1,191 @@
 package ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
-enum class NavigationScreen {
-    CALENDAR,
-    INSTITUTE,
-    SETTINGS,
-    LOGIN,
-    CONNECTIVITY_TEST,
-    ORGANIZATION_SETUP
+enum class NavigationScreen(val label: String, val icon: ImageVector) {
+    LOGIN("Login", Icons.Default.Login),
+    CALENDAR("Calendario", Icons.Default.CalendarToday),
+    ORGANIZATION_DASHBOARD("Instituto", Icons.Default.Business),  // ✅ ACTUALIZADO
+    ORGANIZATION_SETUP("Setup", Icons.Default.Settings),
+    CONFIGURATION("Configuración", Icons.Default.Settings),
+    TEST("Test", Icons.Default.BugReport)
 }
 
 @Composable
 fun AgendAllyNavigationRail(
     selectedScreen: NavigationScreen,
     onScreenSelected: (NavigationScreen) -> Unit,
-    modifier: Modifier = Modifier,
-    isUserLoggedIn: Boolean = false,  // Nuevo parámetro para saber si hay usuario
-    userName: String? = null  // Nombre del usuario para mostrar
+    isUserLoggedIn: Boolean,
+    userName: String?,
+    modifier: Modifier = Modifier
 ) {
     NavigationRail(
-        modifier = modifier.fillMaxHeight(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        header = {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface
+    ) {
+        Column(
+            modifier = Modifier.fillMaxHeight(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+
+            // Logo de la aplicación
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.School,
                     contentDescription = "AgendAlly",
-                    modifier = Modifier.size(32.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
                 )
-
-                // Mostrar información del usuario si está logueado
-                if (isUserLoggedIn && userName != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Hola,",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = userName.split(" ").firstOrNull() ?: "Usuario",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
             }
-        }
-    ) {
-        // Calendario
-        NavigationRailItem(
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.CalendarMonth,
-                    contentDescription = "Calendario"
-                )
-            },
-            label = { Text("Calendario") },
-            selected = selectedScreen == NavigationScreen.CALENDAR,
-            onClick = { onScreenSelected(NavigationScreen.CALENDAR) }
-        )
 
-        // Instituto
-        NavigationRailItem(
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Business,
-                    contentDescription = "Instituto"
-                )
-            },
-            label = { Text("Instituto") },
-            selected = selectedScreen == NavigationScreen.INSTITUTE,
-            onClick = { onScreenSelected(NavigationScreen.INSTITUTE) }
-        )
+            Spacer(modifier = Modifier.height(16.dp))
 
-        // Configuración
-        NavigationRailItem(
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Configuración"
+            // Elementos de navegación principales
+            val navigationItems = if (isUserLoggedIn) {
+                listOf(
+                    NavigationScreen.CALENDAR,
+                    NavigationScreen.ORGANIZATION_DASHBOARD,  // ✅ NUEVO
+                    NavigationScreen.CONFIGURATION
                 )
-            },
-            label = { Text("Configuración") },
-            selected = selectedScreen == NavigationScreen.SETTINGS,
-            onClick = { onScreenSelected(NavigationScreen.SETTINGS) }
-        )
+            } else {
+                listOf(NavigationScreen.CALENDAR)
+            }
 
-        // Spacer para separar el botón de login
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Botón de Login/Logout
-        if (isUserLoggedIn) {
-            // Si está logueado, mostrar botón de logout
-            NavigationRailItem(
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.Logout,
-                        contentDescription = "Cerrar sesión",
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                },
-                label = {
-                    Text(
-                        "Logout",
-                        color = MaterialTheme.colorScheme.error
-                    )
-                },
-                selected = false,
-                onClick = { onScreenSelected(NavigationScreen.LOGIN) },
-                colors = NavigationRailItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.error,
-                    unselectedIconColor = MaterialTheme.colorScheme.error,
-                    selectedTextColor = MaterialTheme.colorScheme.error,
-                    unselectedTextColor = MaterialTheme.colorScheme.error
-                )
-            )
-        } else {
-            // Si no está logueado, mostrar botón de login prominente
-            NavigationRailItem(
-                icon = {
-                    Badge(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    ) {
+            navigationItems.forEach { screen ->
+                NavigationRailItem(
+                    icon = {
                         Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Iniciar sesión",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(16.dp)
+                            imageVector = screen.icon,
+                            contentDescription = screen.label
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = screen.label,
+                            fontSize = 10.sp,
+                            fontWeight = if (selectedScreen == screen) FontWeight.Bold else FontWeight.Normal
+                        )
+                    },
+                    selected = selectedScreen == screen,
+                    onClick = { onScreenSelected(screen) },
+                    colors = NavigationRailItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Área de usuario en la parte inferior
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+
+                // Avatar/Login
+                if (isUserLoggedIn) {
+                    // Avatar del usuario logueado
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = userName?.firstOrNull()?.uppercase() ?: "U",
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
-                },
-                label = {
-                    Text(
-                        "Login",
-                        color = MaterialTheme.colorScheme.primary
+
+                    if (userName != null) {
+                        Text(
+                            text = userName.split(" ").firstOrNull() ?: "",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                // Botón de Login/Logout
+                NavigationRailItem(
+                    icon = {
+                        Icon(
+                            imageVector = if (isUserLoggedIn) Icons.Default.Logout else Icons.Default.Login,
+                            contentDescription = if (isUserLoggedIn) "Logout" else "Login"
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = if (isUserLoggedIn) "Salir" else "Login",
+                            fontSize = 10.sp
+                        )
+                    },
+                    selected = selectedScreen == NavigationScreen.LOGIN,
+                    onClick = { onScreenSelected(NavigationScreen.LOGIN) },
+                    colors = NavigationRailItemDefaults.colors(
+                        selectedIconColor = if (isUserLoggedIn) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        selectedTextColor = if (isUserLoggedIn) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        indicatorColor = if (isUserLoggedIn) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                },
-                selected = selectedScreen == NavigationScreen.LOGIN,
-                onClick = { onScreenSelected(NavigationScreen.LOGIN) },
-                colors = NavigationRailItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.primary,
-                    unselectedIconColor = MaterialTheme.colorScheme.primary,
-                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                    unselectedTextColor = MaterialTheme.colorScheme.primary
                 )
-            )
-            NavigationRailItem(
-                icon = { Icon(Icons.Default.WifiFind, contentDescription = "Conectibity test"  )},
-                label = { Text("Test", color = MaterialTheme.colorScheme.primary) },
-                selected = selectedScreen == NavigationScreen.CONNECTIVITY_TEST,
-                onClick = {onScreenSelected(NavigationScreen.CONNECTIVITY_TEST) }
-            )
+
+                // Botón de Test (solo en desarrollo)
+                NavigationRailItem(
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.BugReport,
+                            contentDescription = "Test"
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = "Test",
+                            fontSize = 10.sp
+                        )
+                    },
+                    selected = selectedScreen == NavigationScreen.TEST,
+                    onClick = { onScreenSelected(NavigationScreen.TEST) },
+                    colors = NavigationRailItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.secondary,
+                        selectedTextColor = MaterialTheme.colorScheme.secondary,
+                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                )
+            }
         }
     }
-
 }

@@ -29,6 +29,25 @@ data class OrganizationSetupRequest(
     val linkedin: String? = null
 )
 
+@Serializable
+data class UpdateOrganizationRequest(
+    val name: String,
+    val acronym: String,
+    val description: String = "",
+    val address: String,
+    val email: String,
+    val phone: String,
+    val studentNumber: Int = 0,
+    val teacherNumber: Int = 0,
+    val logoUrl: String? = null,
+    val webSite: String? = null,
+    val facebook: String? = null,
+    val instagram: String? = null,
+    val twitter: String? = null,
+    val youtube: String? = null,
+    val linkedin: String? = null
+)
+
 // ============== RESPONSE MODELS ==============
 
 @Serializable
@@ -85,6 +104,28 @@ data class UserData(
     val profilePicture: String?,
     val hasOrganization: Boolean,
     val organizationName: String?
+)
+@Serializable
+data class Organization(
+    val organizationID: Int,
+    val acronym: String,
+    val name: String,
+    val description: String = "",
+    val address: String,
+    val email: String,
+    val phone: String,
+    val studentNumber: Int,
+    val teacherNumber: Int,
+    val logoUrl: String? = null,
+    val webSite: String? = null,
+    val facebook: String? = null,
+    val instagram: String? = null,
+    val twitter: String? = null,
+    val youtube: String? = null,
+    val linkedin: String? = null,
+    val isActive: Boolean = true,
+    val createdAt: String? = null,
+    val updatedAt: String? = null
 )
 
 // Corregir esto no se para que

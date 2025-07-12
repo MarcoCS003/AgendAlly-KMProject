@@ -29,6 +29,75 @@ class AuthApiService {
             Result.failure(e)
         }
     }
+    suspend fun updateMyOrganization(
+        name: String,
+        acronym: String,
+        description: String,
+        address: String,
+        email: String,
+        phone: String,
+        studentNumber: Int = 0,
+        teacherNumber: Int = 0,
+        logoUrl: String? = null,
+        website: String? = null,
+        facebook: String? = null,
+        instagram: String? = null,
+        twitter: String? = null,
+        youtube: String? = null,
+        linkedin: String? = null,
+        authToken: String
+    ): Result<Organization> {
+        return try {
+            val request = UpdateOrganizationRequest(
+                name = name,
+                acronym = acronym,
+                description = description,
+                address = address,
+                email = email,
+                phone = phone,
+                studentNumber = studentNumber,
+                teacherNumber = teacherNumber,
+                logoUrl = logoUrl,
+                webSite = website,
+                facebook = facebook,
+                instagram = instagram,
+                twitter = twitter,
+                youtube = youtube,
+                linkedin = linkedin
+            )
+
+            val response = client.put(HttpClientConfig.Endpoints.ORGANIZATIONS_ME) {
+                setBody(request)
+                bearerAuth(authToken)
+                clientType(HttpClientConfig.ClientTypes.DESKTOP_ADMIN)
+            }
+
+            when (response.status) {
+                HttpStatusCode.OK -> {
+                    val organization = response.body<Organization>()
+                    Result.success(organization)
+                }
+                HttpStatusCode.Unauthorized -> {
+                    Result.failure(Exception("Unauthorized: Please login again"))
+                }
+                HttpStatusCode.BadRequest -> {
+                    val errorResponse = response.body<ErrorResponse>()
+                    Result.failure(Exception("Invalid data: ${errorResponse.error}"))
+                }
+                HttpStatusCode.Forbidden -> {
+                    Result.failure(Exception("No permission to edit organization"))
+                }
+                HttpStatusCode.NotFound -> {
+                    Result.failure(Exception("Organization not found"))
+                }
+                else -> {
+                    Result.failure(Exception("Update failed: ${response.status}"))
+                }
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("Update error: ${e.message}"))
+        }
+    }
 
     /**
      * 📱 Obtener información de tipos de cliente
@@ -218,6 +287,37 @@ class AuthApiService {
             Result.success(false) // Token inválido
         }
     }
+
+    suspend fun getMyOrganization(authToken: String): Result<Organization> {
+        return try {
+            val response = client.get(HttpClientConfig.Endpoints.ORGANIZATIONS_ME) {
+                bearerAuth(authToken)
+                clientType(HttpClientConfig.ClientTypes.DESKTOP_ADMIN)
+            }
+
+            when (response.status) {
+                HttpStatusCode.OK -> {
+                    val organization = response.body<Organization>()
+                    Result.success(organization)
+                }
+                HttpStatusCode.Unauthorized -> {
+                    Result.failure(Exception("Unauthorized: Please login again"))
+                }
+                HttpStatusCode.BadRequest -> {
+                    val errorResponse = response.body<ErrorResponse>()
+                    Result.failure(Exception("Bad request: ${errorResponse.error}"))
+                }
+                HttpStatusCode.NotFound -> {
+                    Result.failure(Exception("Organization not found"))
+                }
+                else -> {
+                    Result.failure(Exception("Failed to get organization: ${response.status}"))
+                }
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("Network error: ${e.message}"))
+        }
+    }
 }
 
 /**
@@ -226,3 +326,4 @@ class AuthApiService {
 object AuthApi {
     val instance: AuthApiService by lazy { AuthApiService() }
 }
+

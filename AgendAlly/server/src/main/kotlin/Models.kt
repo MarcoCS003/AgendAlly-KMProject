@@ -43,13 +43,6 @@ enum class UserRole {
 }
 
 
-@Serializable
-enum class EventType {
-    PERSONAL,       // Evento creado por el estudiante
-    SUBSCRIBED,     // Evento de canal suscrito
-    HIDDEN         // Evento suscrito pero oculto por el estudiante
-}
-
 // ============== MODELOS PRINCIPALES ==============
 
 // ✅ ORGANIZATION (antes Institute)
@@ -138,7 +131,8 @@ data class User(
     val syncEnabled: Boolean = false,
     val createdAt: String,
     val lastLoginAt: String? = null,
-    val lastSyncAt: String? = null
+    val lastSyncAt: String? = null,
+    val organizationId: Int? = null
 )
 
 // ✅ SUSCRIPCIÓN DE USUARIO (sin cambios)
@@ -157,34 +151,6 @@ data class UserSubscription(
 
 // ============== REQUESTS ==============
 
-// ✅ AUTENTICACIÓN CON FIREBASE
-@Serializable
-data class GoogleAuthRequest(
-    val idToken: String,
-    val clientType: ClientType = ClientType.UNKNOWN,
-    val organizationId: Int? = null  // Para admins: organización que van a administrar
-)
-
-@Serializable
-data class AuthResponse(
-    val success: Boolean,
-    val user: User? = null,
-    val token: String? = null,
-    val expiresAt: String? = null,
-    val message: String? = null,
-    val assignedRole: String? = null,  // Información del rol asignado
-    val requiresOrganization: Boolean = false  // Si necesita seleccionar organización
-)
-
-@Serializable
-data class TokenValidationRequest(
-    val token: String
-)
-
-@Serializable
-data class AdminSetupRequest(
-    val organizationId: Int
-)
 
 // ✅ REQUEST PARA CREAR EVENTO (actualizado)
 @Serializable
@@ -202,26 +168,7 @@ data class CreateEventRequest(
     val items: List<EventItemBlog> = emptyList()
 )
 
-// ✅ REQUEST PARA AGREGAR ORGANIZACIÓN (antes AddInstituteRequest)
-@Serializable
-data class AddOrganizationRequest(
-    val organizationID: Int,
-    val channelID: Int // ✅ CAMBIO: careerID -> channelID
-)
 
-// ✅ SUSCRIPCIONES (sin cambios)
-@Serializable
-data class SubscribeToChannelRequest(
-    val channelId: Int,
-    val notificationsEnabled: Boolean = true
-)
-
-@Serializable
-data class UpdateSubscriptionRequest(
-    val notificationsEnabled: Boolean
-)
-
-// ============== RESPUESTAS DEL API ==============
 
 // ✅ RESPUESTA DE ORGANIZACIONES (antes InstituteSearchResponse)
 @Serializable
@@ -253,7 +200,24 @@ data class UserSubscriptionsResponse(
     val total: Int,
     val userId: Int
 )
-
+@Serializable
+data class UpdateOrganizationRequest(
+    val name: String,
+    val acronym: String,
+    val description: String = "",
+    val address: String,
+    val email: String,
+    val phone: String,
+    val studentNumber: Int = 0,
+    val teacherNumber: Int = 0,
+    val logoUrl: String? = null,
+    val webSite: String? = null,
+    val facebook: String? = null,
+    val instagram: String? = null,
+    val twitter: String? = null,
+    val youtube: String? = null,
+    val linkedin: String? = null
+)
 // ============== RESPUESTAS GENÉRICAS ==============
 
 @Serializable

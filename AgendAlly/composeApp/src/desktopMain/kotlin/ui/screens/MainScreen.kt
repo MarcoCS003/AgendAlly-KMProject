@@ -78,86 +78,94 @@ fun MainScreen() {
                 .weight(1f)
         ) {
             when (selectedScreen) {
-                NavigationScreen.CALENDAR -> {
-                    if (isUserLoggedIn) {
-                        CalendarScreen()
-                    } else {
-                        LoginRequiredScreen {
-                            selectedScreen = NavigationScreen.LOGIN
-                        }
-                    }
-                }
-
-                NavigationScreen.INSTITUTE -> {
-                    if (isUserLoggedIn) {
-                        InstitutePlaceholderScreen()
-                    } else {
-                        LoginRequiredScreen {
-                            selectedScreen = NavigationScreen.LOGIN
-                        }
-                    }
-                }
-
-                NavigationScreen.SETTINGS -> {
-                    if (isUserLoggedIn) {
-                        SettingsPlaceholderScreen()
-                    } else {
-                        LoginRequiredScreen {
-                            selectedScreen = NavigationScreen.LOGIN
-                        }
-                    }
-                }
-
                 NavigationScreen.LOGIN -> {
                     LoginScreen(
-                        onGoogleSignIn = {
-                            handleRealGoogleSignIn(
-                                useRealOAuth = true,
-                                scope = coroutineScope,
-                                onLoading = { isLoading = it },
-                                onError = { error = it },
-                                onSuccess = { user, requiresSetup, token ->  // ✅ RECIBIR token
-                                    currentUser = user
-                                    currentUserToken = token  // ✅ GUARDAR token
+                        onGoogleSignIn = { useRealOAuth ->
+                            coroutineScope.launch {
+                                handleRealGoogleSignIn(
+                                    useRealOAuth = useRealOAuth,
+                                    scope = coroutineScope,
+                                    onLoading = { isLoading = it },
+                                    onError = { error = it },
+                                    onSuccess = { user, requiresSetup, token ->
+                                        currentUser = user
+                                        currentUserToken = token
 
-                                    println("🔍 LOGIN SUCCESS:")
-                                    println("   User: ${user.name}")
-                                    println("   Email: ${user.email}")
-                                    println("   RequiresSetup: $requiresSetup")
-                                    println("   Token saved: ${token?.take(50)}...")
+                                        println("🔍 LOGIN SUCCESS:")
+                                        println("   User: ${user.name}")
+                                        println("   Email: ${user.email}")
+                                        println("   RequiresSetup: $requiresSetup")
+                                        println("   Token saved: ${token?.take(50)}...")
 
-                                    if (requiresSetup) {
-                                        selectedScreen = NavigationScreen.ORGANIZATION_SETUP
-                                    } else {
-                                        selectedScreen = NavigationScreen.CALENDAR
+                                        if (requiresSetup) {
+                                            selectedScreen = NavigationScreen.ORGANIZATION_SETUP
+                                        } else {
+                                            selectedScreen = NavigationScreen.ORGANIZATION_DASHBOARD  // ✅ CAMBIAR AQUÍ
+                                        }
                                     }
-                                }
-                            )
+                                )
+                            }
                         },
                         isLoading = isLoading,
                         error = error
                     )
                 }
 
+                NavigationScreen.CALENDAR -> {
+                    if (isUserLoggedIn) {
+                        CalendarScreen()
+                    } else {
+                        LoginRequiredScreen(
+                            onLoginClick = { selectedScreen = NavigationScreen.LOGIN }
+                        )
+                    }
+                }
+
+                NavigationScreen.ORGANIZATION_DASHBOARD -> {  // ✅ NUEVO CASO
+                    if (isUserLoggedIn && currentUserToken != null) {
+                        OrganizationDashboardScreen(
+                            userToken = currentUserToken!!,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        LoginRequiredScreen(
+                            onLoginClick = { selectedScreen = NavigationScreen.LOGIN }
+                        )
+                    }
+                }
+
                 NavigationScreen.ORGANIZATION_SETUP -> {
-                    OrganizationSetupScreen(
-                        userToken = currentUserToken ?: "tempToken",
-                        onSetupComplete = {
-                            // Setup exitoso, ir al dashboard
-                            selectedScreen = NavigationScreen.CALENDAR
-                        },
-                        onBackToLogin = {
-                            // Volver al login
-                            selectedScreen = NavigationScreen.LOGIN
-                            currentUser = null
-                        }
-                    )
+                    if (currentUserToken != null) {
+                        OrganizationSetupScreen(
+                            userToken = currentUserToken!!,
+                            onSetupComplete = {
+                                println("✅ Setup completado, navegando a dashboard...")
+                                selectedScreen = NavigationScreen.ORGANIZATION_DASHBOARD  // ✅ CAMBIAR AQUÍ
+                            },
+                            onBackToLogin = {
+                                currentUser = null
+                                currentUserToken = null
+                                selectedScreen = NavigationScreen.LOGIN
+                            }
+                        )
+                    } else {
+                        LoginRequiredScreen(
+                            onLoginClick = { selectedScreen = NavigationScreen.LOGIN }
+                        )
+                    }
                 }
 
-
-                NavigationScreen.CONNECTIVITY_TEST -> {
-                    ConnectivityTestScreen()
+                NavigationScreen.CONFIGURATION -> {
+                    if (isUserLoggedIn) {
+                        DashboardScreen()
+                    } else {
+                        LoginRequiredScreen(
+                            onLoginClick = { selectedScreen = NavigationScreen.LOGIN }
+                        )
+                    }
                 }
+
+                NavigationScreen.TEST -> TODO()
             }
         }
     }

@@ -57,6 +57,7 @@ object HttpClientConfig {
         const val AUTH_STATUS = "/api/auth/status"
         const val AUTH_CLIENT_INFO = "/api/auth/client-info"
         const val AUTH_LOGIN = "/api/auth/login"
+        const val ORGANIZATIONS_ME = "/api/organizations/me"
         const val AUTH_TEST_LOGIN = "/api/auth/test-login"
         const val AUTH_ORGANIZATION_SETUP = "/api/auth/organization-setup"
     }

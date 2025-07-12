@@ -4,6 +4,7 @@ import com.example.*
 import database.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 class OrganizationService {
@@ -59,6 +60,36 @@ class OrganizationService {
             .map { mapRowToChannel(it) }
     }
 
+    fun updateOrganization(organizationId: Int, updateRequest: UpdateOrganizationRequest): Organization? {
+        return transaction {
+            // Actualizar en la base de datos
+            val updateCount = Organizations.update({ Organizations.id eq organizationId }) {
+                it[name] = updateRequest.name
+                it[acronym] = updateRequest.acronym
+                it[description] = updateRequest.description
+                it[address] = updateRequest.address
+                it[email] = updateRequest.email
+                it[phone] = updateRequest.phone
+                it[studentNumber] = updateRequest.studentNumber
+                it[teacherNumber] = updateRequest.teacherNumber
+                it[logoUrl] = updateRequest.logoUrl
+                it[webSite] = updateRequest.webSite
+                it[facebook] = updateRequest.facebook
+                it[instagram] = updateRequest.instagram
+                it[twitter] = updateRequest.twitter
+                it[youtube] = updateRequest.youtube
+                it[linkedin] = updateRequest.linkedin
+                it[updatedAt] = LocalDateTime.now()
+            }
+
+            if (updateCount > 0) {
+                // Retornar la organización actualizada
+                getOrganizationById(organizationId)
+            } else {
+                null
+            }
+        }
+    }
     /**
      * Obtener estadísticas de organizaciones
      */
