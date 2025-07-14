@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun DashboardScreen(
+    onNavigateToChannels: () -> Unit = {},
     userName: String = "Usuario",
     organizationName: String = "Mi Organización",
     onLogout: () -> Unit = {}
@@ -94,15 +95,15 @@ fun DashboardScreen(
                     description = "Gestionar eventos académicos",
                     icon = Icons.Default.Event,
                     onClick = { /* TODO: Navegar a eventos */ },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).height(150.dp)
                 )
 
                 DashboardCard(
                     title = "Canales",
                     description = "Configurar canales de comunicación",
                     icon = Icons.Default.Notifications,
-                    onClick = { /* TODO: Navegar a canales */ },
-                    modifier = Modifier.weight(1f)
+                    onClick = onNavigateToChannels,
+                    modifier = Modifier.weight(1f).height(150.dp)
                 )
             }
 
@@ -115,15 +116,7 @@ fun DashboardScreen(
                     description = "Configurar información institucional",
                     icon = Icons.Default.Business,
                     onClick = { /* TODO: Navegar a organización */ },
-                    modifier = Modifier.weight(1f)
-                )
-
-                DashboardCard(
-                    title = "Reportes",
-                    description = "Ver estadísticas y reportes",
-                    icon = Icons.Default.Analytics,
-                    onClick = { /* TODO: Navegar a reportes */ },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(0.5f).height(150.dp)
                 )
             }
         }

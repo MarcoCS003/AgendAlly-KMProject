@@ -18,6 +18,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import routes.*
+import routes.fileUploadRoutes
 import services.FirebaseService
 import java.io.FileInputStream
 
@@ -109,7 +110,6 @@ fun Application.configureFirebase() {
 }
 
 
-
 fun Application.configureDatabase() {
     println("📊 Inicializando BD...")
     initDatabase()
@@ -149,10 +149,13 @@ fun Application.configureHeaders() {
 fun Application.configureRouting() {
     routing {
         // ===== RUTAS PÚBLICAS =====
+
+        // GET / - Info del API
         get("/") {
-            call.respondText("""
+            call.respondText(
+                """
                 {
-                    "message": "🎓 Academic Ally Backend API",
+                    "message": "🎓 AgendAlly Backend API",
                     "version": "2.0.0",
                     "status": "running",
                     "endpoints": {
@@ -161,32 +164,40 @@ fun Application.configureRouting() {
                             "GET /api/organizations", 
                             "GET /api/channels",
                             "GET /api/events",
-                            "GET /api/auth/client-info",
-                            "GET /images/{filename}",
-                            "GET /static/{path}",
-                            "GET /api/images/{filename}"
+                            "GET /api/events/search?q=query",
+                            "GET /api/events/upcoming",
+                            "GET /api/events/stats", 
+                            "GET /api/events/{id}",
+                            "GET /api/images/{filename}",
+                            "GET /api/images",
+                            "GET /api/auth/client-info"
                         ],
                         "protected": [
-                            "GET /api/auth/me (requires: Authorization + X-Client-Type)"
+                            "GET /api/auth/me",
+                            "GET /api/organizations/me",
+                            "PUT /api/organizations/me",
+                            "POST /api/events",
+                            "PUT /api/events/{id}",
+                            "DELETE /api/events/{id}",
+                            "POST /api/upload/image",
+                            "DELETE /api/images/{filename}"
                         ]
                     },
-                    "auth_flow": {
-                        "step_1": "App autentica con Firebase Auth",
-                        "step_2": "App obtiene idToken de Firebase",
-                        "step_3": "App envía: Authorization: Bearer <idToken>, X-Client-Type: ANDROID_STUDENT|DESKTOP_ADMIN",
-                        "step_4": "Backend valida y asigna permisos automáticamente"
-                    },
-                    "static_files": {
-                        "images": "/images/{filename}",
-                        "static": "/static/{path}",
-                        "api_images": "/api/images/{filename}"
+                    "features": {
+                        "blog_cms": "✅ CRUD completo de eventos",
+                        "file_upload": "✅ Subida de imágenes con validaciones",
+                        "organization_dashboard": "✅ Gestión de organizaciones",
+                        "authentication": "✅ Firebase Auth + JWT"
                     }
                 }
-            """.trimIndent(), ContentType.Application.Json)
+            """.trimIndent(), ContentType.Application.Json
+            )
         }
 
+        // GET /health - Health check
         get("/health") {
-            call.respondText("""
+            call.respondText(
+                """
                 {
                     "status": "healthy",
                     "timestamp": ${System.currentTimeMillis()},
@@ -195,34 +206,16 @@ fun Application.configureRouting() {
                     "version": "2.0.0",
                     "static_files": "enabled"
                 }
-            """.trimIndent(), ContentType.Application.Json)
-        }
-
-        // ===== RUTAS DE DEBUG PARA IMÁGENES EN RESOURCES =====
-        get("/debug/images") {
-            val requiredImages = listOf("InnovaTecNM.jpg", "conferencia_ia.jpg", "concurso_programacion.jpg")
-            val imagesList = requiredImages.map { imageName ->
-                val resource = this::class.java.getResource("/images/$imageName")
-                mapOf(
-                    "name" to imageName,
-                    "exists" to (resource != null),
-                    "url" to "http://localhost:8080/images/$imageName",
-                    "resource_path" to "/images/$imageName"
-                )
-            }
-
-            call.respond(HttpStatusCode.OK, mapOf(
-                "resources_directory_exists" to (this::class.java.getResource("/images") != null),
-                "images_checked" to imagesList.size,
-                "images" to imagesList
-            ))
+            """.trimIndent(), ContentType.Application.Json
+            )
         }
 
         // ===== RUTAS MODULARES =====
-        organizationRoutes()    // /api/organizations/*
-        channelsRoutes()        // /api/channels/*
-        eventsRoutes()          // /api/events/*
-        authRoutes()            // /api/auth/*
-        staticFilesRoutes()     // /images/*, /static/*, /api/images/*
+        organizationRoutes()      // /api/organizations/*
+        fileUploadRoutes()        // /api/images/*, /api/upload/*
+        channelsRoutes()          // /api/channels/*
+        eventsRoutes()            // /api/events/*
+        authRoutes()              // /api/auth/*
+        staticFilesRoutes()       // /static/*
     }
 }

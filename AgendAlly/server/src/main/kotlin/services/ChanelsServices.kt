@@ -93,6 +93,145 @@ class ChannelsService {
             organizationId = organizationId
         )
     }
+    fun createChannel(request: CreateChannelRequest): Int? = transaction {
+        try {
+            println("📝 Creando canal: ${request.name}")
+
+            // Verificar que no exista el acrónimo en la organización
+            val existingChannel = Channels.select {
+                (Channels.organizationId eq request.organizationId) and
+                        (Channels.acronym eq request.acronym.uppercase()) and
+                        (Channels.isActive eq true)
+            }.singleOrNull()
+
+            if (existingChannel != null) {
+                println("❌ Ya existe un canal con acrónimo: ${request.acronym}")
+                return@transaction null
+            }
+
+            val channelId = Channels.insert {
+                it[name] = request.name
+                it[acronym] = request.acronym.uppercase()
+                it[description] = request.description
+                it[type] = request.type
+                it[email] = request.email
+                it[phone] = request.phone
+                it[organizationId] = request.organizationId
+                it[isActive] = true
+                it[createdAt] = LocalDateTime.now()
+            } get Channels.id
+
+            println("✅ Canal creado con ID: $channelId")
+            channelId
+
+        } catch (e: Exception) {
+            println("❌ Error creando canal: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * ✏️ ACTUALIZAR canal existente
+     */
+    fun updateChannel(channelId: Int, request: UpdateChannelRequest): Boolean = transaction {
+        try {
+            println("✏️ Actualizando canal ID: $channelId")
+
+            // Verificar que no exista otro canal con el mismo acrónimo
+            val existingChannel = Channels.select {
+                (Channels.id neq channelId) and
+                        (Channels.acronym eq request.acronym.uppercase()) and
+                        (Channels.isActive eq true)
+            }.singleOrNull()
+
+            if (existingChannel != null) {
+                println("❌ Ya existe otro canal con acrónimo: ${request.acronym}")
+                return@transaction false
+            }
+
+            val updateCount = Channels.update({ Channels.id eq channelId }) {
+                it[name] = request.name
+                it[acronym] = request.acronym.uppercase()
+                it[description] = request.description
+                it[type] = request.type
+                it[email] = request.email
+                it[phone] = request.phone
+                it[updatedAt] = LocalDateTime.now()
+            }
+
+            if (updateCount > 0) {
+                println("✅ Canal actualizado exitosamente")
+                true
+            } else {
+                println("❌ No se encontró canal para actualizar")
+                false
+            }
+
+        } catch (e: Exception) {
+            println("❌ Error actualizando canal: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * 🗑️ ELIMINAR canal (soft delete)
+     */
+    fun deleteChannel(channelId: Int): Boolean = transaction {
+        try {
+            println("🗑️ Eliminando canal ID: $channelId")
+
+            val updateCount = Channels.update({ Channels.id eq channelId }) {
+                it[isActive] = false
+                it[updatedAt] = LocalDateTime.now()
+            }
+
+            if (updateCount > 0) {
+                println("✅ Canal marcado como inactivo")
+                true
+            } else {
+                println("❌ No se encontró canal para eliminar")
+                false
+            }
+
+        } catch (e: Exception) {
+            println("❌ Error eliminando canal: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * 👥 OBTENER suscriptores de un canal
+     */
+    fun getChannelSubscribers(channelId: Int): List<ChannelSubscriber> = transaction {
+        UserSubscriptions
+            .join(Users, JoinType.INNER, UserSubscriptions.userId, Users.id)
+            .select {
+                (UserSubscriptions.channelId eq channelId) and
+                        (UserSubscriptions.isActive eq true) and
+                        (Users.isActive eq true)
+            }
+            .orderBy(UserSubscriptions.subscribedAt to SortOrder.DESC)
+            .map { row ->
+                ChannelSubscriber(
+                    userId = row[Users.id],
+                    userName = row[Users.name],
+                    userEmail = row[Users.email],
+                    subscribedAt = row[UserSubscriptions.subscribedAt].format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                    notificationsEnabled = row[UserSubscriptions.notificationsEnabled]
+                )
+            }
+    }
+
+    /**
+     * 🔍 VERIFICAR si un canal pertenece a una organización
+     */
+    fun isChannelFromOrganization(channelId: Int, organizationId: Int): Boolean = transaction {
+        Channels.select {
+            (Channels.id eq channelId) and
+                    (Channels.organizationId eq organizationId) and
+                    (Channels.isActive eq true)
+        }.singleOrNull() != null
+    }
 
     /**
      * Mapear row de BD a modelo Channel

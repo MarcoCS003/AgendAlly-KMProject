@@ -22,7 +22,8 @@ data class UserData(
     val email: String,
     val profilePicture: String?,
     val hasOrganization: Boolean,
-    val organizationName: String?
+    val organizationName: String?,
+    val organizationId: Int? = null
 )
 
 @Composable
@@ -157,7 +158,11 @@ fun MainScreen() {
 
                 NavigationScreen.CONFIGURATION -> {
                     if (isUserLoggedIn) {
-                        DashboardScreen()
+                        DashboardScreen(
+                            onNavigateToChannels = {
+                                selectedScreen = NavigationScreen.CHANNELS_LIST  // ✅ NAVEGAR A CANALES
+                            }
+                        )
                     } else {
                         LoginRequiredScreen(
                             onLoginClick = { selectedScreen = NavigationScreen.LOGIN }
@@ -165,11 +170,50 @@ fun MainScreen() {
                     }
                 }
 
+                NavigationScreen.CHANNELS_LIST -> {
+                    if (isUserLoggedIn && currentUserToken != null) {
+                        val orgId = currentUser?.organizationId ?: 4 // Default fallback
+                        ChannelsListScreen(
+                            userToken = currentUserToken!!,
+                            userOrganizationId = orgId,
+                            onNavigateToAddChannel = { selectedScreen = NavigationScreen.ADD_CHANNEL },
+                            onNavigateBack = { selectedScreen = NavigationScreen.CONFIGURATION },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        LoginRequiredScreen(onLoginClick = { selectedScreen = NavigationScreen.LOGIN })
+                    }
+                }
+
+                // ✅ NUEVA PANTALLA - AGREGAR CANAL
+                NavigationScreen.ADD_CHANNEL -> {
+                    println("🔍 ADD_CHANNEL Navigation check:")
+                    println("   isUserLoggedIn: $isUserLoggedIn")
+                    println("   currentUserToken: ${currentUserToken != null}")
+                    println("   organizationId: ${currentUser?.organizationId}")
+
+                    if (isUserLoggedIn && currentUserToken != null) {
+                        val orgId = currentUser?.organizationId ?: 4 // Default fallback
+                        AddChannelScreen(
+                            userToken = currentUserToken!!,
+                            userOrganizationId = orgId,
+                            onNavigateBack = { selectedScreen = NavigationScreen.CHANNELS_LIST },
+                            onChannelCreated = { selectedScreen = NavigationScreen.CHANNELS_LIST },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        LoginRequiredScreen(onLoginClick = { selectedScreen = NavigationScreen.LOGIN })
+                    }
+                }
+
+
                 NavigationScreen.TEST -> TODO()
             }
         }
     }
 }
+
+
 
 @Composable
 fun LoginRequiredScreen(onLoginClick: () -> Unit) {
@@ -278,7 +322,8 @@ private fun handleRealGoogleSignIn(
                         email = authResult.user.email,
                         profilePicture = authResult.user.profilePicture,
                         hasOrganization = authResult.user.hasOrganization,
-                        organizationName = authResult.user.organizationName
+                        organizationName = authResult.user.organizationName,
+                        organizationId = authResult.user.organizationId,
                     )
 
                     // ✅ OBTENER EL TOKEN del authResult

@@ -17,6 +17,23 @@ fun Route.organizationRoutes() {
     val organizationService = OrganizationService()
 
     route("/api/organizations") {
+
+        get {
+            try {
+                val organizations = organizationService.getAllOrganizations()
+                val response = OrganizationSearchResponse(
+                    organizations = organizations,
+                    total = organizations.size
+                )
+                call.respond(HttpStatusCode.OK, response)
+            } catch (e: Exception) {
+                call.respond(
+                    HttpStatusCode.InternalServerError,
+                    ErrorResponse(error = "Error obteniendo organizaciones: ${e.message}")
+                )
+            }
+        }
+
         get("/me") {
             try {
                 val authHeader = call.request.headers["Authorization"]

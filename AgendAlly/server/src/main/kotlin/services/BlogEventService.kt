@@ -1,15 +1,13 @@
 package com.example.services
 
 import com.example.*
-import database.BlogEventItems
-import database.BlogEvents
-import database.Channels
+import database.*
 
-import database.Organizations
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.greaterEq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.lessEq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.like
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -225,6 +223,248 @@ class BlogEventsService {
             updatedAt = row[Organizations.updatedAt]?.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
             studentNumber = 0,
             teacherNumber = 0
+        )
+    }
+    fun createEvent(request: CreateEventRequest, createdByUserId: Int): Int? = transaction {
+        try {
+            println("📝 Creando evento: ${request.title}")
+
+            // 1. Insertar evento principal
+            val eventId = BlogEvents.insert {
+                it[title] = request.title
+                it[shortDescription] = request.shortDescription
+                it[longDescription] = request.longDescription
+                it[location] = request.location
+                it[startDate] = request.startDate?.let { date -> LocalDate.parse(date) }
+                it[endDate] = request.endDate?.let { date -> LocalDate.parse(date) }
+                it[category] = request.category
+                it[imagePath] = request.imagePath
+                it[organizationId] = request.organizationId
+                it[channelId] = request.channelId
+                it[createdAt] = LocalDateTime.now()
+                it[isActive] = true
+            } get BlogEvents.id
+
+            println("✅ Evento creado con ID: $eventId")
+
+            // 2. Insertar items del evento
+            if (request.items.isNotEmpty()) {
+                request.items.forEachIndexed { index, item ->
+                    BlogEventItems.insert {
+                        it[this.eventId] = eventId
+                        it[type] = item.type
+                        it[title] = item.title
+                        it[value] = item.value
+                        it[isClickable] = item.isClickable
+                        it[iconName] = item.iconName
+                        it[sortOrder] = item.sortOrder.takeIf { it > 0 } ?: index
+                    }
+                }
+                println("✅ ${request.items.size} items del evento insertados")
+            }
+
+            eventId
+
+        } catch (e: Exception) {
+            println("❌ Error creando evento: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * ✏️ ACTUALIZAR evento existente
+     */
+    fun updateEvent(eventId: Int, request: UpdateEventRequest): Boolean = transaction {
+        try {
+            println("✏️ Actualizando evento ID: $eventId")
+
+            // 1. Actualizar evento principal
+            val updateCount = BlogEvents.update({ BlogEvents.id eq eventId }) {
+                it[title] = request.title
+                it[shortDescription] = request.shortDescription
+                it[longDescription] = request.longDescription
+                it[location] = request.location
+                it[startDate] = request.startDate?.let { date -> LocalDate.parse(date) }
+                it[endDate] = request.endDate?.let { date -> LocalDate.parse(date) }
+                it[category] = request.category
+                it[imagePath] = request.imagePath
+                it[channelId] = request.channelId
+                it[updatedAt] = LocalDateTime.now()
+            }
+
+            if (updateCount == 0) {
+                println("❌ No se encontró evento para actualizar")
+                return@transaction false
+            }
+
+            // 2. Eliminar items existentes y crear nuevos
+            BlogEventItems.deleteWhere { BlogEventItems.eventId eq eventId }
+
+            if (request.items.isNotEmpty()) {
+                request.items.forEachIndexed { index, item ->
+                    BlogEventItems.insert {
+                        it[this.eventId] = eventId
+                        it[type] = item.type
+                        it[title] = item.title
+                        it[value] = item.value
+                        it[isClickable] = item.isClickable
+                        it[iconName] = item.iconName
+                        it[sortOrder] = item.sortOrder.takeIf { it > 0 } ?: index
+                    }
+                }
+                println("✅ ${request.items.size} items actualizados")
+            }
+
+            println("✅ Evento actualizado exitosamente")
+            true
+
+        } catch (e: Exception) {
+            println("❌ Error actualizando evento: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * 🗑️ ELIMINAR evento (soft delete)
+     */
+    fun deleteEvent(eventId: Int): Boolean = transaction {
+        try {
+            println("🗑️ Eliminando evento ID: $eventId")
+
+            val updateCount = BlogEvents.update({ BlogEvents.id eq eventId }) {
+                it[isActive] = false
+                it[updatedAt] = LocalDateTime.now()
+            }
+
+            if (updateCount > 0) {
+                println("✅ Evento marcado como inactivo")
+                true
+            } else {
+                println("❌ No se encontró evento para eliminar")
+                false
+            }
+
+        } catch (e: Exception) {
+            println("❌ Error eliminando evento: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * 📊 OBTENER eventos por usuario/organización (para dashboard admin)
+     */
+    fun getEventsByUserOrganization(userId: Int): List<EventInstituteBlog> = transaction {
+        // Obtener organización del usuario
+        val userOrganization = Users.select { Users.id eq userId }
+            .singleOrNull()?.get(Users.organizationId)
+
+        if (userOrganization == null) {
+            return@transaction emptyList()
+        }
+
+        BlogEvents.select {
+            (BlogEvents.organizationId eq userOrganization) and
+                    (BlogEvents.isActive eq true)
+        }
+            .orderBy(BlogEvents.createdAt to SortOrder.DESC)
+            .map { mapRowToEvent(it) }
+    }
+
+    /**
+     * 🔢 CONTAR eventos por organización
+     */
+    fun getEventCountByOrganization(organizationId: Int): Long = transaction {
+        BlogEvents.select {
+            (BlogEvents.organizationId eq organizationId) and
+                    (BlogEvents.isActive eq true)
+        }.count()
+    }
+
+    /**
+     * 📅 OBTENER eventos por mes específico (para calendario)
+     */
+    fun getEventsByMonth(year: Int, month: Int, organizationId: Int? = null): List<EventInstituteBlog> = transaction {
+        val startDate = LocalDate.of(year, month, 1)
+        val endDate = startDate.plusMonths(1).minusDays(1)
+
+        val query = BlogEvents.select {
+            (BlogEvents.startDate greaterEq startDate) and
+                    (BlogEvents.startDate lessEq endDate) and
+                    (BlogEvents.isActive eq true)
+        }
+
+        // Filtrar por organización si se especifica
+        val finalQuery = if (organizationId != null) {
+            query.andWhere { BlogEvents.organizationId eq organizationId }
+        } else {
+            query
+        }
+
+        finalQuery.orderBy(BlogEvents.startDate to SortOrder.ASC)
+            .map { mapRowToEvent(it) }
+    }
+
+    /**
+     * 🔍 BUSCAR eventos avanzada con múltiples filtros
+     */
+    fun searchEventsAdvanced(
+        query: String? = null,
+        organizationId: Int? = null,
+        channelId: Int? = null,
+        category: String? = null,
+        startDate: String? = null,
+        endDate: String? = null,
+        limit: Int = 50,
+        offset: Int = 0
+    ): SearchEventsResult = transaction {
+
+        var sqlQuery = BlogEvents.selectAll().orWhere { BlogEvents.isActive eq true }
+
+        // Aplicar filtros
+        if (!query.isNullOrBlank()) {
+            val searchTerm = "%${query.lowercase()}%"
+            sqlQuery = sqlQuery.andWhere {
+                (BlogEvents.title.lowerCase() like searchTerm) or
+                        (BlogEvents.shortDescription.lowerCase() like searchTerm) or
+                        (BlogEvents.longDescription.lowerCase() like searchTerm)
+            }
+        }
+
+        if (organizationId != null) {
+            sqlQuery = sqlQuery.andWhere { BlogEvents.organizationId eq organizationId }
+        }
+
+        if (channelId != null) {
+            sqlQuery = sqlQuery.andWhere { BlogEvents.channelId eq channelId }
+        }
+
+        if (category != null) {
+            sqlQuery = sqlQuery.andWhere { BlogEvents.category eq category }
+        }
+
+        if (startDate != null) {
+            sqlQuery = sqlQuery.andWhere { BlogEvents.startDate greaterEq LocalDate.parse(startDate) }
+        }
+
+        if (endDate != null) {
+            sqlQuery = sqlQuery.andWhere { BlogEvents.startDate lessEq LocalDate.parse(endDate) }
+        }
+
+        // Contar total
+        val total = sqlQuery.count()
+
+        // Aplicar paginación y obtener resultados
+        val events = sqlQuery
+            .orderBy(BlogEvents.startDate to SortOrder.ASC)
+            .limit(limit, offset.toLong())
+            .map { mapRowToEvent(it) }
+
+        SearchEventsResult(
+            events = events,
+            total = total,
+            limit = limit,
+            offset = offset,
+            hasMore = (offset + limit) < total
         )
     }
 }

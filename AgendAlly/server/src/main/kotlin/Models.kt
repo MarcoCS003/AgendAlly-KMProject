@@ -149,27 +149,6 @@ data class UserSubscription(
     val syncedAt: String? = null
 )
 
-// ============== REQUESTS ==============
-
-
-// ✅ REQUEST PARA CREAR EVENTO (actualizado)
-@Serializable
-data class CreateEventRequest(
-    val title: String,
-    val shortDescription: String = "",
-    val longDescription: String = "",
-    val location: String = "",
-    val startDate: String? = null,
-    val endDate: String? = null,
-    val category: String = "INSTITUTIONAL",
-    val imagePath: String = "",
-    val organizationId: Int, // ✅ CAMBIO: instituteId -> organizationId
-    val channelId: Int? = null, // ✅ NUEVO: Para eventos específicos de canal
-    val items: List<EventItemBlog> = emptyList()
-)
-
-
-
 // ✅ RESPUESTA DE ORGANIZACIONES (antes InstituteSearchResponse)
 @Serializable
 data class OrganizationSearchResponse(
@@ -226,33 +205,6 @@ data class EventsListResponse(
     val total: Int
 )
 
-@Serializable
-data class EventSearchResponse(
-    val events: List<EventInstituteBlog>,
-    val total: Int,
-    val query: String
-)
-
-@Serializable
-data class EventsByCategoryResponse(
-    val events: List<EventInstituteBlog>,
-    val total: Int,
-    val category: String
-)
-
-@Serializable
-data class UpcomingEventsResponse(
-    val events: List<EventInstituteBlog>,
-    val total: Int,
-    val description: String
-)
-
-@Serializable
-data class EventStatsResponse(
-    val totalEvents: Long,
-    val eventsByCategory: Map<String, Long>,
-    val lastUpdated: String
-)
 
 @Serializable
 data class SuccessResponse(
@@ -354,8 +306,216 @@ data class OrganizationSetupResponse(
     val name: String,
     val acronym: String
 )
-// ============== CONFIGURACIÓN DE ROLES POR PLATAFORMA ==============
 
+@Serializable
+data class CreateEventRequest(
+    val title: String,
+    val shortDescription: String = "",
+    val longDescription: String = "",
+    val location: String = "",
+    val startDate: String? = null, // "2025-07-15"
+    val endDate: String? = null,
+    val category: String = "INSTITUTIONAL",
+    val imagePath: String = "",
+    val organizationId: Int,
+    val channelId: Int? = null,
+    val items: List<CreateEventItemRequest> = emptyList()
+)
+
+@Serializable
+data class CreateEventItemRequest(
+    val type: String, // "SCHEDULE", "PHONE", etc.
+    val title: String,
+    val value: String,
+    val isClickable: Boolean = false,
+    val iconName: String? = null,
+    val sortOrder: Int = 0
+)
+
+@Serializable
+data class UpdateEventRequest(
+    val title: String,
+    val shortDescription: String = "",
+    val longDescription: String = "",
+    val location: String = "",
+    val startDate: String? = null,
+    val endDate: String? = null,
+    val category: String = "INSTITUTIONAL",
+    val imagePath: String = "",
+    val channelId: Int? = null,
+    val items: List<CreateEventItemRequest> = emptyList()
+)
+
+@Serializable
+data class CreateEventResponse(
+    val success: Boolean,
+    val message: String,
+    val eventId: Int,
+    val event: EventInstituteBlog? = null
+)
+
+@Serializable
+data class UpdateEventResponse(
+    val success: Boolean,
+    val message: String,
+    val event: EventInstituteBlog? = null
+)
+
+@Serializable
+data class DeleteEventResponse(
+    val success: Boolean,
+    val message: String
+)
+
+@Serializable
+data class EventSearchResponse(
+    val events: List<EventInstituteBlog>,
+    val total: Int,
+    val query: String
+)
+
+@Serializable
+data class UpcomingEventsResponse(
+    val events: List<EventInstituteBlog>,
+    val total: Int,
+    val description: String
+)
+
+@Serializable
+data class EventStatsResponse(
+    val totalEvents: Long,
+    val eventsByCategory: Map<String, Long>,
+    val lastUpdated: String
+)
+
+@Serializable
+data class SearchEventsResult(
+    val events: List<EventInstituteBlog>,
+    val total: Long,
+    val limit: Int,
+    val offset: Int,
+    val hasMore: Boolean
+)
+
+// ================================
+// 📋 MODELOS DE RESPUESTA
+// ================================
+
+sealed class UploadResult {
+    data class Success(
+        val fileName: String,
+        val originalName: String,
+        val size: Long,
+        val url: String,
+        val path: String
+    ) : UploadResult()
+
+    data class Error(val message: String) : UploadResult()
+}
+
+@Serializable
+data class ImageInfo(
+    val fileName: String,
+    val size: Long,
+    val url: String,
+    val lastModified: Long
+)
+
+@Serializable
+data class UploadResponse(
+    val success: Boolean,
+    val message: String,
+    val fileName: String? = null,
+    val url: String? = null,
+    val size: Long? = null
+)
+
+@Serializable
+data class DeleteImageResponse(
+    val success: Boolean,
+    val message: String
+)
+
+@Serializable
+data class ListImagesResponse(
+    val images: List<ImageInfo>,
+    val total: Int
+)
+
+
+@Serializable
+data class CreateChannelRequest(
+    val name: String,
+    val acronym: String,
+    val description: String = "",
+    val type: String = "DEPARTMENT", // CAREER, DEPARTMENT, ADMINISTRATIVE
+    val email: String? = null,
+    val phone: String? = null,
+    val organizationId: Int
+)
+
+@Serializable
+data class UpdateChannelRequest(
+    val name: String,
+    val acronym: String,
+    val description: String = "",
+    val type: String = "DEPARTMENT",
+    val email: String? = null,
+    val phone: String? = null
+)
+
+@Serializable
+data class CreateChannelResponse(
+    val success: Boolean,
+    val message: String,
+    val channelId: Int,
+    val channel: Channel? = null
+)
+
+@Serializable
+data class UpdateChannelResponse(
+    val success: Boolean,
+    val message: String,
+    val channel: Channel? = null
+)
+
+@Serializable
+data class DeleteChannelResponse(
+    val success: Boolean,
+    val message: String
+)
+
+@Serializable
+data class ChannelSubscriber(
+    val userId: Int,
+    val userName: String,
+    val userEmail: String,
+    val subscribedAt: String,
+    val notificationsEnabled: Boolean
+)
+
+@Serializable
+data class ChannelSubscribersResponse(
+    val channelId: Int,
+    val subscribers: List<ChannelSubscriber>,
+    val total: Int
+)
+// ============== CONFIGURACIÓN DE ROLES POR PLATAFORMA ==============
+@Serializable
+data class ChannelStatsResponse(
+    val totalChannels: Long,
+    val channelsByType: Map<String, Long>,
+    val totalSubscriptions: Long,
+    val organizationId: Int
+)
+
+@Serializable
+data class ChannelTypeInfo(
+    val id: String,
+    val name: String,
+    val description: String,
+    val icon: String
+)
 object RoleAssignmentConfig {
 
     /**

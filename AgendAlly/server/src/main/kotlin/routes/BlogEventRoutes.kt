@@ -7,9 +7,11 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import services.AuthMiddleware
 
 fun Route.eventsRoutes() {
     val blogEventsService = BlogEventsService()
+    val authMiddleware = AuthMiddleware()
 
     route("/api/events") {
 
@@ -140,56 +142,6 @@ fun Route.eventsRoutes() {
             }
         }
 
-        // GET /api/events/category/{category} - Eventos por categoría
-        get("/category/{category}") {
-            try {
-                val category = call.parameters["category"] ?: ""
-                if (category.isBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, ErrorResponse(error = "Categoría requerida"))
-                    return@get
-                }
-
-                val events = blogEventsService.getEventsByCategory(category)
-                val response = EventsByCategoryResponse(
-                    events = events,
-                    total = events.size,
-                    category = category
-                )
-                call.respond(HttpStatusCode.OK, response)
-            } catch (e: Exception) {
-                call.respond(
-                    HttpStatusCode.InternalServerError,
-                    ErrorResponse(error = "Error obteniendo eventos por categoría: ${e.message}")
-                )
-            }
-        }
-
-        // GET /api/events/date-range?start=YYYY-MM-DD&end=YYYY-MM-DD - Eventos en rango de fechas
-        get("/date-range") {
-            try {
-                val startDate = call.request.queryParameters["start"]
-                val endDate = call.request.queryParameters["end"]
-
-                if (startDate.isNullOrBlank() || endDate.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, ErrorResponse(error = "Fechas start y end requeridas"))
-                    return@get
-                }
-
-                val events = blogEventsService.getEventsByDateRange(startDate, endDate)
-                val response = BlogEventsResponse(
-                    events = events,
-                    total = events.size,
-                    organizationInfo = null
-                )
-                call.respond(HttpStatusCode.OK, response)
-            } catch (e: Exception) {
-                call.respond(
-                    HttpStatusCode.InternalServerError,
-                    ErrorResponse(error = "Error obteniendo eventos por rango de fechas: ${e.message}")
-                )
-            }
-        }
-
         // GET /api/events/stats - Estadísticas de eventos
         get("/stats") {
             try {
@@ -199,6 +151,213 @@ fun Route.eventsRoutes() {
                 call.respond(
                     HttpStatusCode.InternalServerError,
                     ErrorResponse(error = "Error obteniendo estadísticas de eventos: ${e.message}")
+                )
+            }
+        }
+
+        post {
+            try {
+                // 1. Verificar autenticación
+                val authHeader = call.request.headers["Authorization"]
+                if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                    call.respond(HttpStatusCode.Unauthorized, ErrorResponse(error = "Token requerido"))
+                    return@post
+                }
+
+                val token = authHeader.removePrefix("Bearer ")
+                val authResult = authMiddleware.authenticateUser(token)
+
+                if (authResult == null) {
+                    call.respond(HttpStatusCode.Unauthorized, ErrorResponse(error = "Token inválido"))
+                    return@post
+                }
+
+                // 2. Verificar permisos
+                if (!authResult.permissions.canCreateEvents) {
+                    call.respond(HttpStatusCode.Forbidden, ErrorResponse(error = "Sin permisos para crear eventos"))
+                    return@post
+                }
+
+                // 3. Validar que el usuario tenga organización
+                if (authResult.user.organizationId == null) {
+                    call.respond(HttpStatusCode.BadRequest, ErrorResponse(error = "Usuario debe tener organización asignada"))
+                    return@post
+                }
+
+                // 4. Recibir datos del evento
+                val request = call.receive<CreateEventRequest>()
+
+                // 5. Validar datos básicos
+                if (request.title.isBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, ErrorResponse(error = "El título es obligatorio"))
+                    return@post
+                }
+
+                // 6. Verificar que el evento pertenezca a la organización del usuario
+                if (request.organizationId != authResult.user.organizationId) {
+                    call.respond(HttpStatusCode.Forbidden, ErrorResponse(error = "Solo puedes crear eventos en tu organización"))
+                    return@post
+                }
+
+                // 7. Crear evento
+                val eventId = blogEventsService.createEvent(request, authResult.user.id)
+
+                if (eventId == null) {
+                    call.respond(HttpStatusCode.InternalServerError, ErrorResponse(error = "Error creando evento"))
+                    return@post
+                }
+
+                // 8. Obtener evento creado
+                val createdEvent = blogEventsService.getEventById(eventId)
+
+                val response = CreateEventResponse(
+                    success = true,
+                    message = "Evento creado exitosamente",
+                    eventId = eventId,
+                    event = createdEvent
+                )
+
+                call.respond(HttpStatusCode.Created, response)
+
+            } catch (e: Exception) {
+                call.respond(
+                    HttpStatusCode.InternalServerError,
+                    ErrorResponse(error = "Error creando evento: ${e.message}")
+                )
+            }
+        }
+
+        // PUT /api/events/{id} - Actualizar evento
+        put("/{id}") {
+            try {
+                // 1. Verificar autenticación
+                val authHeader = call.request.headers["Authorization"]
+                if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                    call.respond(HttpStatusCode.Unauthorized, ErrorResponse(error = "Token requerido"))
+                    return@put
+                }
+
+                val token = authHeader.removePrefix("Bearer ")
+                val authResult = authMiddleware.authenticateUser(token)
+
+                if (authResult == null) {
+                    call.respond(HttpStatusCode.Unauthorized, ErrorResponse(error = "Token inválido"))
+                    return@put
+                }
+
+                // 2. Obtener ID del evento
+                val eventId = call.parameters["id"]?.toIntOrNull()
+                if (eventId == null) {
+                    call.respond(HttpStatusCode.BadRequest, ErrorResponse(error = "ID inválido"))
+                    return@put
+                }
+
+                // 3. Verificar que el evento existe
+                val existingEvent = blogEventsService.getEventById(eventId)
+                if (existingEvent == null) {
+                    call.respond(HttpStatusCode.NotFound, ErrorResponse(error = "Evento no encontrado"))
+                    return@put
+                }
+
+                // 4. Verificar permisos (solo puede editar eventos de su organización)
+                if (existingEvent.organizationId != authResult.user.organizationId) {
+                    call.respond(HttpStatusCode.Forbidden, ErrorResponse(error = "Solo puedes editar eventos de tu organización"))
+                    return@put
+                }
+
+                // 5. Recibir datos de actualización
+                val request = call.receive<UpdateEventRequest>()
+
+                // 6. Validar datos
+                if (request.title.isBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, ErrorResponse(error = "El título es obligatorio"))
+                    return@put
+                }
+
+                // 7. Actualizar evento
+                val success = blogEventsService.updateEvent(eventId, request)
+
+                if (!success) {
+                    call.respond(HttpStatusCode.InternalServerError, ErrorResponse(error = "Error actualizando evento"))
+                    return@put
+                }
+
+                // 8. Obtener evento actualizado
+                val updatedEvent = blogEventsService.getEventById(eventId)
+
+                val response = UpdateEventResponse(
+                    success = true,
+                    message = "Evento actualizado exitosamente",
+                    event = updatedEvent
+                )
+
+                call.respond(HttpStatusCode.OK, response)
+
+            } catch (e: Exception) {
+                call.respond(
+                    HttpStatusCode.InternalServerError,
+                    ErrorResponse(error = "Error actualizando evento: ${e.message}")
+                )
+            }
+        }
+
+        // DELETE /api/events/{id} - Eliminar evento (soft delete)
+        delete("/{id}") {
+            try {
+                // 1. Verificar autenticación
+                val authHeader = call.request.headers["Authorization"]
+                if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                    call.respond(HttpStatusCode.Unauthorized, ErrorResponse(error = "Token requerido"))
+                    return@delete
+                }
+
+                val token = authHeader.removePrefix("Bearer ")
+                val authResult = authMiddleware.authenticateUser(token)
+
+                if (authResult == null) {
+                    call.respond(HttpStatusCode.Unauthorized, ErrorResponse(error = "Token inválido"))
+                    return@delete
+                }
+
+                // 2. Obtener ID del evento
+                val eventId = call.parameters["id"]?.toIntOrNull()
+                if (eventId == null) {
+                    call.respond(HttpStatusCode.BadRequest, ErrorResponse(error = "ID inválido"))
+                    return@delete
+                }
+
+                // 3. Verificar que el evento existe
+                val existingEvent = blogEventsService.getEventById(eventId)
+                if (existingEvent == null) {
+                    call.respond(HttpStatusCode.NotFound, ErrorResponse(error = "Evento no encontrado"))
+                    return@delete
+                }
+
+                // 4. Verificar permisos
+                if (existingEvent.organizationId != authResult.user.organizationId) {
+                    call.respond(HttpStatusCode.Forbidden, ErrorResponse(error = "Solo puedes eliminar eventos de tu organización"))
+                    return@delete
+                }
+
+                // 5. Eliminar evento (soft delete)
+                val success = blogEventsService.deleteEvent(eventId)
+
+                if (!success) {
+                    call.respond(HttpStatusCode.InternalServerError, ErrorResponse(error = "Error eliminando evento"))
+                    return@delete
+                }
+
+                val response = DeleteEventResponse(
+                    success = true,
+                    message = "Evento eliminado exitosamente"
+                )
+
+                call.respond(HttpStatusCode.OK, response)
+
+            } catch (e: Exception) {
+                call.respond(
+                    HttpStatusCode.InternalServerError,
+                    ErrorResponse(error = "Error eliminando evento: ${e.message}")
                 )
             }
         }

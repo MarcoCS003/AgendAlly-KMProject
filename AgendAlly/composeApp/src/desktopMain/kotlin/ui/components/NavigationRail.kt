@@ -23,6 +23,8 @@ enum class NavigationScreen(val label: String, val icon: ImageVector) {
     ORGANIZATION_DASHBOARD("Instituto", Icons.Default.Business),  // ✅ ACTUALIZADO
     ORGANIZATION_SETUP("Setup", Icons.Default.Settings),
     CONFIGURATION("Configuración", Icons.Default.Settings),
+    CHANNELS_LIST("Canales", Icons.Default.Notifications),
+    ADD_CHANNEL("Agregar Canal", Icons.Default.Add),
     TEST("Test", Icons.Default.BugReport)
 }
 
@@ -158,31 +160,6 @@ fun AgendAllyNavigationRail(
                         indicatorColor = if (isUserLoggedIn) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
                         unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                )
-
-                // Botón de Test (solo en desarrollo)
-                NavigationRailItem(
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.BugReport,
-                            contentDescription = "Test"
-                        )
-                    },
-                    label = {
-                        Text(
-                            text = "Test",
-                            fontSize = 10.sp
-                        )
-                    },
-                    selected = selectedScreen == NavigationScreen.TEST,
-                    onClick = { onScreenSelected(NavigationScreen.TEST) },
-                    colors = NavigationRailItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.secondary,
-                        selectedTextColor = MaterialTheme.colorScheme.secondary,
-                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
-                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                 )
             }

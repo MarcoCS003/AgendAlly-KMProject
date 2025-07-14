@@ -103,7 +103,8 @@ data class UserData(
     val email: String,
     val profilePicture: String?,
     val hasOrganization: Boolean,
-    val organizationName: String?
+    val organizationName: String?,
+    val organizationId: Int
 )
 @Serializable
 data class Organization(
@@ -127,6 +128,69 @@ data class Organization(
     val createdAt: String? = null,
     val updatedAt: String? = null
 )
+@Serializable
+data class Channel(
+    val id: Int,
+    val organizationId: Int,
+    val organizationName: String,
+    val name: String,
+    val acronym: String,
+    val description: String = "",
+    val email: String? = null,
+    val phone: String? = null,
+    val isActive: Boolean = true,
+    val createdAt: String,
+    val updatedAt: String? = null
+)
+
+@Serializable
+data class CreateChannelRequest(
+    val name: String,
+    val acronym: String,
+    val description: String = "",
+    val type: String = "DEPARTMENT",
+    val email: String? = null,
+    val phone: String? = null,
+    val organizationId: Int
+)
+
+@Serializable
+data class UpdateChannelRequest(
+    val name: String,
+    val acronym: String,
+    val description: String = "",
+    val type: String = "DEPARTMENT",
+    val email: String? = null,
+    val phone: String? = null
+)
+
+@Serializable
+data class ChannelsResponse(
+    val channels: List<Channel>,
+    val total: Int,
+    val organizationId: Int? = null
+)
+
+@Serializable
+data class UpdateChannelResponse(
+    val success: Boolean,
+    val message: String,
+    val channel: Channel? = null
+)
+
+@Serializable
+data class DeleteChannelResponse(
+    val success: Boolean,
+    val message: String
+)
+@Serializable
+data class CreateChannelResponse(
+    val success: Boolean,
+    val message: String,
+    val channelId: Int,
+    val channel: Channel? = null
+)
+
 
 // Corregir esto no se para que
 
@@ -140,6 +204,7 @@ fun UserResponse.toUserData(organizationName: String? = null): UserData {
         email = email,
         profilePicture = profilePicture,
         hasOrganization = organizationId != null,
-        organizationName = organizationName
+        organizationName = organizationName,
+        organizationId = organizationId !! // ✅ AGREGAR ESTA LÍNEA
     )
 }
