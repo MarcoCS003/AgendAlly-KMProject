@@ -60,6 +60,7 @@ object HttpClientConfig {
         const val ORGANIZATIONS_ME = "/api/organizations/me"
         const val AUTH_TEST_LOGIN = "/api/auth/test-login"
         const val AUTH_ORGANIZATION_SETUP = "/api/auth/organization-setup"
+        const val BLOG_EVENTS = "/api/events"
         // ===== ORGANIZACIONES =====
         const val ORGANIZATIONS = "/api/organizations"
 

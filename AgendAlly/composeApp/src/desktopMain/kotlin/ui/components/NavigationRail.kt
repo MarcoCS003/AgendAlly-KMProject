@@ -25,7 +25,9 @@ enum class NavigationScreen(val label: String, val icon: ImageVector) {
     CONFIGURATION("Configuración", Icons.Default.Settings),
     CHANNELS_LIST("Canales", Icons.Default.Notifications),
     ADD_CHANNEL("Agregar Canal", Icons.Default.Add),
-    TEST("Test", Icons.Default.BugReport)
+    TEST("Test", Icons.Default.BugReport),
+    EDIT_CHANNEL("Editar Canal", Icons.Default.Edit),
+    BLOG("Blog", Icons.Default.Article),
 }
 
 @Composable
@@ -68,7 +70,8 @@ fun AgendAllyNavigationRail(
             val navigationItems = if (isUserLoggedIn) {
                 listOf(
                     NavigationScreen.CALENDAR,
-                    NavigationScreen.ORGANIZATION_DASHBOARD,  // ✅ NUEVO
+                    NavigationScreen.ORGANIZATION_DASHBOARD,
+                    NavigationScreen.BLOG,
                     NavigationScreen.CONFIGURATION
                 )
             } else {

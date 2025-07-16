@@ -25,6 +25,7 @@ fun ChannelsListScreen(
     userToken: String,
     onNavigateToAddChannel: () -> Unit,
     onNavigateBack: () -> Unit,
+    onEditChannel: (Channel) -> Unit,
     modifier: Modifier = Modifier,
     userOrganizationId: Int
 ) {
@@ -32,6 +33,9 @@ fun ChannelsListScreen(
     var channels by remember { mutableStateOf<List<Channel>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    // Estados para eliminar canal
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var channelToDelete by remember { mutableStateOf<Channel?>(null) }
 
     val coroutineScope = rememberCoroutineScope()
 
@@ -40,7 +44,7 @@ fun ChannelsListScreen(
         isLoading = true
         errorMessage = null
 
-        val result = ChannelsApi.instance.getMyChannels(userToken, userOrganizationId )
+        val result = ChannelsApi.instance.getMyChannels(userToken, userOrganizationId)
 
         if (result.isSuccess) {
             channels = result.getOrNull() ?: emptyList()
@@ -122,10 +126,13 @@ fun ChannelsListScreen(
                     ChannelCard(
                         channel = channel,
                         onEdit = {
-                            // TODO: Implementar edición de canal
+                            onEditChannel(channel)
                         },
                         onDelete = {
-                            // TODO: Implementar eliminación de canal
+                            if (channel.acronym != "GEN") {
+                                channelToDelete = channel
+                                showDeleteDialog = true
+                            }
                         }
                     )
                 }
@@ -154,6 +161,23 @@ fun ChannelsListScreen(
                 )
             }
         }
+    }
+
+    if (showDeleteDialog && channelToDelete != null) {
+        DeleteChannelDialog(
+            channel = channelToDelete!!,
+            userToken = userToken,
+            onConfirm = {
+                // Recargar lista después de eliminar
+                loadChannels()
+                showDeleteDialog = false
+                channelToDelete = null
+            },
+            onDismiss = {
+                showDeleteDialog = false
+                channelToDelete = null
+            }
+        )
     }
 }
 
@@ -211,13 +235,17 @@ private fun ChannelCard(
                 }
             }
 
-            // Botón de configuración (solo si no es el canal General)
-            if (channel.acronym != "GEN") {
+            // Botones de acción en la esquina superior derecha
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Botón de configuración
                 IconButton(
                     onClick = onEdit,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .size(32.dp)
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Settings,
@@ -225,6 +253,21 @@ private fun ChannelCard(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)
                     )
+                }
+
+                // Botón de eliminar (solo si NO es el canal General)
+                if (channel.acronym != "GEN") {
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Eliminar canal",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
         }
@@ -281,4 +324,222 @@ private fun AddChannelCard(
             )
         }
     }
+}
+
+
+@Composable
+fun DeleteChannelDialog(
+    channel: Channel,
+    userToken: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var isDeleting by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+
+    // Verificar si es el canal General (no se puede eliminar)
+    val isGeneralChannel = channel.acronym == "GEN"
+
+    fun deleteChannel() {
+        if (isGeneralChannel) return
+
+        coroutineScope.launch {
+            isDeleting = true
+            errorMessage = null
+
+            try {
+                val result = ChannelsApi.instance.deleteChannel(
+                    channelId = channel.id,
+                    authToken = userToken
+                )
+
+                if (result.isSuccess) {
+                    onConfirm()
+                } else {
+                    errorMessage = result.exceptionOrNull()?.message ?: "Error eliminando canal"
+                }
+            } catch (e: Exception) {
+                errorMessage = e.message ?: "Error inesperado"
+            } finally {
+                isDeleting = false
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!isDeleting) onDismiss() },
+        icon = {
+            Icon(
+                imageVector = if (isGeneralChannel) Icons.Default.Warning else Icons.Default.Delete,
+                contentDescription = null,
+                tint = if (isGeneralChannel) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.error
+            )
+        },
+        title = {
+            Text(
+                text = if (isGeneralChannel) "Canal Protegido" else "Eliminar Canal",
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (isGeneralChannel) {
+                    // Mensaje para canal General
+                    Text(
+                        text = "El canal \"${channel.name}\" es un canal especial del sistema y no puede ser eliminado.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Los canales General son necesarios para el funcionamiento del sistema.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                } else {
+                    // Mensaje para canales normales
+                    Text(
+                        text = "¿Estás seguro que deseas eliminar el canal \"${channel.name}\"?",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    Text(
+                        text = "Esta acción:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+
+                    Column(
+                        modifier = Modifier.padding(start = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "• Ocultará el canal de la lista",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "• Desuscribirá a todos los usuarios",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "• Los eventos del canal quedarán sin categorizar",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Esta acción no se puede deshacer",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+
+                // Mostrar error si existe
+                errorMessage?.let { error ->
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Text(
+                            text = error,
+                            modifier = Modifier.padding(12.dp),
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (isGeneralChannel) {
+                // Solo botón de "Entendido" para canal General
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text("Entendido")
+                }
+            } else {
+                // Botón de confirmar eliminación para canales normales
+                Button(
+                    onClick = { deleteChannel() },
+                    enabled = !isDeleting,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    if (isDeleting) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onError
+                            )
+                            Text("Eliminando...")
+                        }
+                    } else {
+                        Text("Eliminar")
+                    }
+                }
+            }
+        },
+        dismissButton = {
+            if (!isGeneralChannel) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    enabled = !isDeleting
+                ) {
+                    Text("Cancelar")
+                }
+            }
+        }
+    )
 }

@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import auth.DesktopAuth
 import auth.TokenResponse
 import kotlinx.coroutines.launch
+import models.Channel
 import models.LoginRequest
 import repository.AuthResult
 import ui.components.AgendAllyNavigationRail
@@ -43,6 +44,8 @@ fun MainScreen() {
 
 
     var currentUserToken by remember { mutableStateOf<String?>(null) }
+
+    var selectedChannelForEdit by remember { mutableStateOf<Channel?>(null) }
 
     Row(modifier = Modifier.fillMaxSize()) {
         // Navigation Rail con estado de login
@@ -178,10 +181,28 @@ fun MainScreen() {
                             userOrganizationId = orgId,
                             onNavigateToAddChannel = { selectedScreen = NavigationScreen.ADD_CHANNEL },
                             onNavigateBack = { selectedScreen = NavigationScreen.CONFIGURATION },
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxSize(),
+                            onEditChannel = { channel ->
+                                selectedChannelForEdit = channel
+                                selectedScreen = NavigationScreen.EDIT_CHANNEL
+                            },
                         )
                     } else {
                         LoginRequiredScreen(onLoginClick = { selectedScreen = NavigationScreen.LOGIN })
+                    }
+                }
+
+                NavigationScreen.EDIT_CHANNEL -> {
+                    if (isUserLoggedIn && currentUserToken != null && selectedChannelForEdit != null) {
+                        EditChannelScreen(
+                            channel = selectedChannelForEdit!!,
+                            userToken = currentUserToken!!,
+                            onNavigateBack = { selectedScreen = NavigationScreen.CHANNELS_LIST },
+                            onChannelUpdated = {
+                                selectedScreen = NavigationScreen.CHANNELS_LIST
+                                selectedChannelForEdit = null
+                            }
+                        )
                     }
                 }
 
@@ -206,6 +227,20 @@ fun MainScreen() {
                     }
                 }
 
+                NavigationScreen.BLOG -> {
+                    if (isUserLoggedIn && currentUserToken != null) {
+                        val orgId = currentUser?.organizationId ?: 4
+                        BlogScreen(
+                            userToken = currentUserToken!!,
+                            userOrganizationId = orgId,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        LoginRequiredScreen(
+                            onLoginClick = { selectedScreen = NavigationScreen.LOGIN }
+                        )
+                    }
+                }
 
                 NavigationScreen.TEST -> TODO()
             }

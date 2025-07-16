@@ -27,7 +27,11 @@ class AuthRepository {
 
             if (loginResult.isSuccess) {
                 val loginResponse = loginResult.getOrThrow()
-
+                println("🔍 RESPONSE DEBUG:")
+                println("   - Success: ${loginResponse.success}")
+                println("   - User null?: ${loginResponse.user == null}")
+                println("   - RequiresSetup: ${loginResponse.requiresOrganizationSetup}")
+                println("   - Message: ${loginResponse.message}")
                 if (loginResponse.success && loginResponse.user != null) {
                     val userData = loginResponse.user.toUserData()
 

@@ -104,7 +104,7 @@ data class UserData(
     val profilePicture: String?,
     val hasOrganization: Boolean,
     val organizationName: String?,
-    val organizationId: Int
+    val organizationId: Int?
 )
 @Serializable
 data class Organization(
@@ -191,9 +191,86 @@ data class CreateChannelResponse(
     val channel: Channel? = null
 )
 
+@Serializable
+data class BlogEvent(
+    val id: Int,
+    val title: String,
+    val shortDescription: String = "",
+    val longDescription: String = "",
+    val location: String = "",
+    val startDate: String? = null,
+    val endDate: String? = null,
+    val category: String = "INSTITUTIONAL",
+    val imagePath: String = "",
+    val organizationId: Int,
+    val channelId: Int? = null,
+    val createdAt: String? = null,
+    val updatedAt: String? = null,
+    val isActive: Boolean = true
+)
 
+@Serializable
+data class BlogEventsResponse(
+    val events: List<BlogEvent>,
+    val total: Int,
+    val organizationInfo: Organization? = null
+)
+
+@Serializable
+data class CreateEventRequest(
+    val title: String,
+    val shortDescription: String = "",
+    val longDescription: String = "",
+    val location: String = "",
+    val startDate: String? = null,
+    val endDate: String? = null,
+    val category: String = "INSTITUTIONAL",
+    val imagePath: String = "",
+    val organizationId: Int,
+    val channelId: Int? = null
+)
+
+@Serializable
+data class CreateEventResponse(
+    val success: Boolean,
+    val message: String,
+    val event: BlogEvent? = null
+)
+
+@Serializable
+data class UpdateEventRequest(
+    val title: String,
+    val shortDescription: String = "",
+    val longDescription: String = "",
+    val location: String = "",
+    val startDate: String? = null,
+    val endDate: String? = null,
+    val category: String = "INSTITUTIONAL",
+    val imagePath: String = "",
+    val channelId: Int? = null
+)
+
+@Serializable
+data class DeleteEventResponse(
+    val success: Boolean,
+    val message: String
+)
 // Corregir esto no se para que
-
+data class ChannelOption(
+    val id: Int,
+    val name: String,
+    val acronym: String,
+    val isAll: Boolean = false
+) {
+    companion object {
+        val ALL_CHANNELS = ChannelOption(
+            id = -1,
+            name = "Todos los canales",
+            acronym = "TODOS",
+            isAll = true
+        )
+    }
+}
 /**
  * Convierte UserResponse del API a UserData del UI
  */
@@ -205,6 +282,6 @@ fun UserResponse.toUserData(organizationName: String? = null): UserData {
         profilePicture = profilePicture,
         hasOrganization = organizationId != null,
         organizationName = organizationName,
-        organizationId = organizationId !! // ✅ AGREGAR ESTA LÍNEA
+        organizationId = organizationId // ✅ AGREGAR ESTA LÍNEA
     )
 }
